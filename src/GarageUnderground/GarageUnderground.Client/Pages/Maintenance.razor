@@ -1,0 +1,322 @@
+@page "/maintenance"
+@rendermode InteractiveWebAssembly
+
+<PageTitle>Manutenzioni</PageTitle>
+
+<div class="mb-4">
+    <h1 class="mb-2">Registro interventi</h1>
+    <p class="text-muted">Gestisci le manutenzioni per targa, con filtri, ricerca e stato pagamenti.</p>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <div class="alert alert-danger" role="alert">@errorMessage</div>
+}
+
+<div class="row gy-3 mb-4">
+    <div class="col-12 col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title">Filtri</h5>
+                <div class="row gy-2">
+                    <div class="col-12 col-md-6">
+                        <label class="form-label" for="licenseFilter">Targa</label>
+                        <input id="licenseFilter" class="form-control" @bind="licenseFilter" @bind:event="oninput" placeholder="Es. AB123CD" />
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label" for="searchTerm">Cerca</label>
+                        <input id="searchTerm" class="form-control" @bind="searchTerm" @bind:event="oninput" placeholder="Descrizione o targa" />
+                    </div>
+                </div>
+                <div class="mt-3 d-flex gap-2">
+                    <button class="btn btn-primary" @onclick="LoadRecordsAsync" disabled="@isLoading">Applica</button>
+                    <button class="btn btn-outline-secondary" @onclick="ResetFilters" disabled="@isLoading">Reset</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title">Sintesi</h5>
+                <div class="row text-center gy-2">
+                    <div class="col-4">
+                        <div class="fw-semibold">Totale</div>
+                        <div>@TotalAmount.ToString("C")</div>
+                    </div>
+                    <div class="col-4">
+                        <div class="fw-semibold">Da pagare</div>
+                        <div class="text-warning">@OutstandingAmount.ToString("C")</div>
+                    </div>
+                    <div class="col-4">
+                        <div class="fw-semibold">Interventi</div>
+                        <div>@records.Count</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <h5 class="card-title">Nuovo / modifica</h5>
+        <EditForm Model="@editModel" OnValidSubmit="@SaveAsync">
+            <div class="row gy-3">
+                <div class="col-12 col-md-4">
+                    <label class="form-label" for="license">Targa</label>
+                    <InputText id="license" class="form-control" @bind-Value="editModel.LicensePlate" />
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label" for="date">Data</label>
+                    <InputDate id="date" class="form-control" @bind-Value="editModel.Date" />
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label" for="price">Prezzo</label>
+                    <InputNumber id="price" class="form-control" @bind-Value="editModel.Price" step="0.01" />
+                </div>
+                <div class="col-12">
+                    <label class="form-label" for="description">Descrizione</label>
+                    <InputTextArea id="description" class="form-control" @bind-Value="editModel.Description" rows="3" />
+                </div>
+                <div class="col-12">
+                    <div class="form-check">
+                        <InputCheckbox id="paid" class="form-check-input" @bind-Value="editModel.IsPaid" />
+                        <label class="form-check-label" for="paid">Pagato</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-3 d-flex gap-2">
+                <button type="submit" class="btn btn-success" disabled="@isLoading">@SubmitLabel</button>
+                <button type="button" class="btn btn-outline-secondary" @onclick="ResetForm" disabled="@isLoading">Annulla</button>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <h5 class="card-title">Interventi (@records.Count)</h5>
+
+        @if (isLoading)
+        {
+            <p class="text-muted mb-0">Caricamento in corso...</p>
+        }
+        else if (!records.Any())
+        {
+            <p class="text-muted mb-0">Nessun intervento registrato.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Targa</th>
+                            <th>Descrizione</th>
+                            <th>Prezzo</th>
+                            <th>Stato</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var record in records)
+                        {
+                            <tr>
+                                <td>@record.Date.ToString("yyyy-MM-dd")</td>
+                                <td class="fw-semibold">@record.LicensePlate</td>
+                                <td>@record.Description</td>
+                                <td>@record.Price.ToString("C")</td>
+                                <td>
+                                    @if (record.IsPaid)
+                                    {
+                                        <span class="badge bg-success">Pagato</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-warning text-dark">Da pagare</span>
+                                    }
+                                </td>
+                                <td class="text-end">
+                                    <button class="btn btn-link btn-sm" @onclick="() => EditRecord(record)">Modifica</button>
+                                    <button class="btn btn-link btn-sm text-danger" @onclick="() => DeleteRecordAsync(record)" disabled="@isLoading">Elimina</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private MaintenanceRecord editModel = new() { Date = DateOnly.FromDateTime(DateTime.UtcNow) };
+    private List<MaintenanceRecord> records = [];
+    private string licenseFilter = string.Empty;
+    private string searchTerm = string.Empty;
+    private string? errorMessage;
+    private bool isLoading;
+
+    private decimal TotalAmount => records.Sum(record => record.Price);
+    private decimal OutstandingAmount => records.Where(record => !record.IsPaid).Sum(record => record.Price);
+    private string SubmitLabel => editModel.Id == ObjectId.Empty ? "Aggiungi" : "Aggiorna";
+
+    [Inject]
+    private MaintenanceApiClient ApiClient { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRecordsAsync();
+    }
+
+    private async Task LoadRecordsAsync()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+            records = (await ApiClient.GetAsync(licenseFilter, searchTerm)).ToList();
+        }
+        catch (Exception exception)
+        {
+            errorMessage = $"Impossibile caricare gli interventi: {exception.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ResetFilters()
+    {
+        licenseFilter = string.Empty;
+        searchTerm = string.Empty;
+        await LoadRecordsAsync();
+    }
+
+    private void ResetForm()
+    {
+        editModel = new MaintenanceRecord
+        {
+            Id = ObjectId.Empty,
+            LicensePlate = string.Empty,
+            Description = string.Empty,
+            Price = 0,
+            IsPaid = false,
+            Date = DateOnly.FromDateTime(DateTime.UtcNow)
+        };
+    }
+
+    private void EditRecord(MaintenanceRecord record)
+    {
+        editModel = new MaintenanceRecord
+        {
+            Id = record.Id,
+            LicensePlate = record.LicensePlate,
+            Description = record.Description,
+            Price = record.Price,
+            Date = record.Date,
+            IsPaid = record.IsPaid
+        };
+    }
+
+    private async Task SaveAsync()
+    {
+        if (!TryValidate(editModel, out var validationError))
+        {
+            errorMessage = validationError;
+            return;
+        }
+
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+            var saved = await ApiClient.SaveAsync(editModel);
+            UpsertLocal(saved);
+            ResetForm();
+        }
+        catch (Exception exception)
+        {
+            errorMessage = $"Salvataggio fallito: {exception.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task DeleteRecordAsync(MaintenanceRecord record)
+    {
+        if (record.Id == ObjectId.Empty)
+        {
+            return;
+        }
+
+        try
+        {
+            isLoading = true;
+            await ApiClient.DeleteAsync(record.Id);
+            records = records.Where(r => r.Id != record.Id).ToList();
+            if (editModel.Id == record.Id)
+            {
+                ResetForm();
+            }
+        }
+        catch (Exception exception)
+        {
+            errorMessage = $"Eliminazione fallita: {exception.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void UpsertLocal(MaintenanceRecord saved)
+    {
+        var existingIndex = records.FindIndex(record => record.Id == saved.Id);
+        if (existingIndex >= 0)
+        {
+            records[existingIndex] = saved;
+        }
+        else
+        {
+            records.Insert(0, saved);
+        }
+    }
+
+    private static bool TryValidate(MaintenanceRecord record, out string? validationError)
+    {
+        if (string.IsNullOrWhiteSpace(record.LicensePlate))
+        {
+            validationError = "Inserisci la targa.";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(record.Description))
+        {
+            validationError = "Inserisci una descrizione.";
+            return false;
+        }
+
+        if (record.Price < 0)
+        {
+            validationError = "Il prezzo non può essere negativo.";
+            return false;
+        }
+
+        if (record.Date == default)
+        {
+            validationError = "Seleziona una data valida.";
+            return false;
+        }
+
+        validationError = null;
+        return true;
+    }
+}

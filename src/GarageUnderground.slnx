@@ -3,4 +3,5 @@
   <Project Path="GarageUnderground.ServiceDefaults/GarageUnderground.ServiceDefaults.csproj" />
   <Project Path="GarageUnderground/GarageUnderground.Client/GarageUnderground.Client.csproj" />
   <Project Path="GarageUnderground/GarageUnderground/GarageUnderground.csproj" />
+  <Project Path="GarageUnderground/GarageUnderground.Shared/GarageUnderground.Shared.csproj" />
 </Solution>
