@@ -1,3 +1,4 @@
+using GarageUnderground.Authentication;
 using GarageUnderground.Components;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -7,6 +8,9 @@ builder.AddServiceDefaults();
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveWebAssemblyComponents();
+
+// Add authentication services
+builder.Services.AddAppAuthentication(builder.Configuration);
 
 var app = builder.Build();
 
@@ -26,11 +30,17 @@ else
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
 
+// Add authentication middleware
+app.UseAppAuthentication();
+
 app.UseAntiforgery();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveWebAssemblyRenderMode()
     .AddAdditionalAssemblies(typeof(GarageUnderground.Client._Imports).Assembly);
+
+// Map authentication endpoints
+app.MapAuthenticationEndpoints();
 
 app.Run();

@@ -1,0 +1,177 @@
+@page "/dashboard"
+@using GarageUnderground.Client.Authentication
+@using Microsoft.AspNetCore.Components.Authorization
+@inject ApiAuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+@rendermode InteractiveWebAssembly
+
+<PageTitle>Dashboard - GarageUnderground</PageTitle>
+
+@if (isLoading)
+{
+    <div class="loading-container">
+        <div class="loading-spinner"></div>
+    </div>
+}
+else if (user?.IsAuthenticated == true)
+{
+    <section class="dashboard">
+        <header class="dashboard-header">
+            <h1>Welcome, @user.Name!</h1>
+            <p class="user-info">
+                <span class="provider-badge">@user.Provider</span>
+                @if (!string.IsNullOrEmpty(user.Email))
+                {
+                    <span class="email">@user.Email</span>
+                }
+            </p>
+        </header>
+
+        <div class="dashboard-content">
+            <p class="placeholder-text">Your dashboard content will appear here.</p>
+        </div>
+
+        <footer class="dashboard-footer">
+            <button class="btn btn-logout" @onclick="HandleLogout">
+                Logout
+            </button>
+        </footer>
+    </section>
+}
+
+@code {
+    private UserInfo? user;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        user = await AuthStateProvider.GetCurrentUserAsync(forceRefresh: true);
+
+        if (user?.IsAuthenticated != true)
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+
+        isLoading = false;
+    }
+
+    private async Task HandleLogout()
+    {
+        isLoading = true;
+        await AuthStateProvider.LogoutAsync();
+        Navigation.NavigateTo("/");
+    }
+}
+
+<style>
+    .loading-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 50vh;
+    }
+
+    .loading-spinner {
+        width: 2.5rem;
+        height: 2.5rem;
+        border: 3px solid var(--color-surface);
+        border-top-color: var(--color-accent);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @@keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .dashboard {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+        min-height: calc(100vh - var(--header-height) - 4rem);
+    }
+
+    .dashboard-header {
+        text-align: center;
+    }
+
+    .dashboard-header h1 {
+        font-size: clamp(1.5rem, 4vw, 2rem);
+        font-weight: 600;
+        margin: 0 0 0.5rem;
+        color: var(--color-text);
+    }
+
+    .user-info {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.5rem;
+        margin: 0;
+        color: var(--color-text-muted);
+        font-size: 0.9rem;
+    }
+
+    .provider-badge {
+        background-color: var(--color-primary);
+        color: var(--color-text);
+        padding: 0.25rem 0.75rem;
+        border-radius: 1rem;
+        font-size: 0.8rem;
+        text-transform: capitalize;
+    }
+
+    .email {
+        color: var(--color-text-muted);
+    }
+
+    .dashboard-content {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+    }
+
+    .placeholder-text {
+        color: var(--color-text-muted);
+        text-align: center;
+    }
+
+    .dashboard-footer {
+        display: flex;
+        justify-content: center;
+        padding: 1rem 0;
+    }
+
+    .btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
+        font-weight: 500;
+        border: none;
+        border-radius: 0.5rem;
+        cursor: pointer;
+        transition: background-color 0.2s, transform 0.1s;
+        min-height: 44px;
+    }
+
+    .btn:active {
+        transform: scale(0.98);
+    }
+
+    .btn-logout {
+        background-color: transparent;
+        color: var(--color-accent);
+        border: 1px solid var(--color-accent);
+    }
+
+    .btn-logout:hover {
+        background-color: var(--color-accent);
+        color: white;
+    }
+</style>

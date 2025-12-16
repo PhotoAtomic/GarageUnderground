@@ -1,0 +1,47 @@
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider AuthStateProvider
+
+<header class="app-header">
+    <a class="app-title" href="">GarageUnderground</a>
+    <button type="button" class="menu-toggle" @onclick="ToggleMenu" aria-label="Toggle navigation">
+        <span class="menu-icon"></span>
+    </button>
+</header>
+
+<nav class="app-nav @(menuOpen ? "open" : "")" @onclick="CloseMenu">
+    @if (isAuthenticated)
+    {
+        <NavLink class="nav-link" href="dashboard" Match="NavLinkMatch.All">
+            <span class="nav-icon dashboard-icon" aria-hidden="true"></span>
+            Dashboard
+        </NavLink>
+    }
+    else
+    {
+        <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+            <span class="nav-icon home-icon" aria-hidden="true"></span>
+            Home
+        </NavLink>
+    }
+</nav>
+
+@code {
+    private bool menuOpen;
+    private bool isAuthenticated;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        isAuthenticated = authState.User.Identity?.IsAuthenticated == true;
+    }
+
+    private void ToggleMenu()
+    {
+        menuOpen = !menuOpen;
+    }
+
+    private void CloseMenu()
+    {
+        menuOpen = false;
+    }
+}

@@ -1,0 +1,37 @@
+@using GarageUnderground.Client.Authentication
+@inject ApiAuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public string RedirectIfAuthenticated { get; set; } = "/dashboard";
+
+    [Parameter]
+    public string RedirectIfNotAuthenticated { get; set; } = "/";
+
+    [Parameter]
+    public bool RequireAuthentication { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = await AuthStateProvider.GetCurrentUserAsync();
+        var isAuthenticated = user?.IsAuthenticated == true;
+
+        if (RequireAuthentication && !isAuthenticated)
+        {
+            Navigation.NavigateTo(RedirectIfNotAuthenticated);
+        }
+        else if (!RequireAuthentication && isAuthenticated && !string.IsNullOrEmpty(RedirectIfAuthenticated))
+        {
+            Navigation.NavigateTo(RedirectIfAuthenticated);
+        }
+    }
+}
+
+@if (ChildContent != null)
+{
+    @ChildContent
+}
