@@ -38,3 +38,5 @@
 - favour reentrant code
 - always program in a defensive way, write code that can tollerate unexpected inputs or states
 
+## solution structure
+- unless specified otherwise, new blazor page should be created in the "client" project and tagget @rendermode InteractiveWebAssembly
