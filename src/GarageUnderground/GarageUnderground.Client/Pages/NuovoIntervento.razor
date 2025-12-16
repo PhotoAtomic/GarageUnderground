@@ -1,0 +1,470 @@
+@page "/intervento/nuovo"
+@using GarageUnderground.Client.Authentication
+@using GarageUnderground.Client.Models
+@using GarageUnderground.Client.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inject ApiAuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+@inject IInterventiService InterventiService
+@rendermode InteractiveWebAssembly
+
+<PageTitle>Nuovo Intervento - GarageUnderground</PageTitle>
+
+@if (isLoading)
+{
+    <div class="loading-container">
+        <div class="loading-spinner"></div>
+    </div>
+}
+else if (user?.IsAuthenticated == true)
+{
+    <section class="nuovo-intervento-page">
+        <header class="page-header">
+            <button class="btn btn-back" @onclick="NavigateBack">
+                ? Indietro
+            </button>
+            <h1>Nuovo Intervento</h1>
+        </header>
+
+        <div class="form-container">
+            <div class="header-info">
+                <div class="info-row">
+                    <label>Data</label>
+                    <input type="date" 
+                           class="form-input date-input"
+                           @bind="dataIntervento" />
+                </div>
+                <div class="info-row">
+                    <label>Targa</label>
+                    <span class="targa-display">@targa</span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="descrizione">Descrizione Intervento</label>
+                <textarea id="descrizione" 
+                          class="form-input textarea-input"
+                          placeholder="Descrivi l'intervento eseguito..."
+                          @bind="descrizione"
+                          rows="4"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="costo">Costo (€)</label>
+                <input type="number" 
+                       id="costo"
+                       class="form-input"
+                       placeholder="0.00"
+                       step="0.01"
+                       min="0"
+                       @bind="costo" />
+            </div>
+
+            <div class="form-group checkbox-group">
+                <label class="checkbox-label" @onclick="TogglePagato">
+                    <span class="checkbox-box @(pagato ? "checked" : "")">
+                        @if (pagato)
+                        {
+                            <span class="checkmark">?</span>
+                        }
+                    </span>
+                    <span class="checkbox-text">Pagato</span>
+                </label>
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="error-message">
+                    @errorMessage
+                </div>
+            }
+
+            <div class="form-actions">
+                <button class="btn btn-cancel" @onclick="NavigateBack" disabled="@isSaving">
+                    Annulla
+                </button>
+                <button class="btn btn-save" @onclick="SaveIntervento" disabled="@isSaving">
+                    @if (isSaving)
+                    {
+                        <span class="btn-spinner"></span>
+                        <span>Salvataggio...</span>
+                    }
+                    else
+                    {
+                        <span>?? Salva Intervento</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </section>
+}
+
+@code {
+    [SupplyParameterFromQuery]
+    public string? Targa { get; set; }
+
+    private UserInfo? user;
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private string targa = string.Empty;
+    private DateTime dataIntervento = DateTime.Today;
+    private string descrizione = string.Empty;
+    private decimal costo = 0;
+    private bool pagato = false;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        user = await AuthStateProvider.GetCurrentUserAsync(forceRefresh: true);
+
+        if (user?.IsAuthenticated != true)
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+
+        targa = (Targa ?? string.Empty).Trim().ToUpperInvariant();
+        
+        if (string.IsNullOrEmpty(targa))
+        {
+            Navigation.NavigateTo("/dashboard");
+            return;
+        }
+
+        isLoading = false;
+    }
+
+    private void TogglePagato()
+    {
+        pagato = !pagato;
+    }
+
+    private async Task SaveIntervento()
+    {
+        errorMessage = null;
+
+        if (string.IsNullOrWhiteSpace(descrizione))
+        {
+            errorMessage = "La descrizione è obbligatoria";
+            return;
+        }
+
+        if (costo < 0)
+        {
+            errorMessage = "Il costo non può essere negativo";
+            return;
+        }
+
+        isSaving = true;
+
+        try
+        {
+            var nuovoIntervento = new NuovoInterventoDto
+            {
+                Targa = targa,
+                Data = DateOnly.FromDateTime(dataIntervento),
+                Descrizione = descrizione.Trim(),
+                Costo = costo,
+                Pagato = pagato
+            };
+
+            var result = await InterventiService.CreateAsync(nuovoIntervento);
+
+            if (result is not null)
+            {
+                Navigation.NavigateTo($"/dashboard?targa={Uri.EscapeDataString(targa)}");
+            }
+            else
+            {
+                errorMessage = "Errore durante il salvataggio. Riprova.";
+            }
+        }
+        catch (Exception)
+        {
+            errorMessage = "Errore durante il salvataggio. Riprova.";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void NavigateBack()
+    {
+        Navigation.NavigateTo($"/dashboard?targa={Uri.EscapeDataString(targa)}");
+    }
+}
+
+<style>
+    .loading-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 50vh;
+    }
+
+    .loading-spinner {
+        width: 2.5rem;
+        height: 2.5rem;
+        border: 3px solid var(--color-surface);
+        border-top-color: var(--color-accent);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    .btn-spinner {
+        width: 1.5rem;
+        height: 1.5rem;
+        border: 2px solid transparent;
+        border-top-color: currentColor;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @@keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .nuovo-intervento-page {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        padding: 1rem;
+        max-width: 800px;
+        margin: 0 auto;
+    }
+
+    .page-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .page-header h1 {
+        font-size: clamp(1.5rem, 4vw, 2rem);
+        font-weight: 600;
+        color: var(--color-text);
+        margin: 0;
+    }
+
+    .btn-back {
+        padding: 1rem 1.5rem;
+        font-size: 1.1rem;
+        font-weight: 500;
+        background-color: var(--color-surface);
+        color: var(--color-text);
+        border: 2px solid var(--color-primary);
+        border-radius: 0.75rem;
+        cursor: pointer;
+        transition: background-color 0.2s, transform 0.1s;
+        min-height: 56px;
+    }
+
+    .btn-back:hover {
+        background-color: var(--color-primary);
+    }
+
+    .btn-back:active {
+        transform: scale(0.98);
+    }
+
+    .form-container {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        background-color: var(--color-surface);
+        padding: 2rem;
+        border-radius: 1rem;
+    }
+
+    .header-info {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2rem;
+        padding-bottom: 1.5rem;
+        border-bottom: 2px solid var(--color-primary);
+    }
+
+    .info-row {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .info-row label {
+        font-size: 1rem;
+        font-weight: 500;
+        color: var(--color-text-muted);
+    }
+
+    .date-input {
+        padding: 1rem 1.25rem;
+        font-size: 1.25rem;
+        border: 2px solid var(--color-primary);
+        border-radius: 0.75rem;
+        background-color: var(--color-bg);
+        color: var(--color-text);
+        min-height: 60px;
+    }
+
+    .date-input:focus {
+        outline: none;
+        border-color: var(--color-accent);
+    }
+
+    .targa-display {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--color-accent);
+        padding: 0.75rem 1.25rem;
+        background-color: var(--color-bg);
+        border-radius: 0.5rem;
+        letter-spacing: 0.1em;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .form-group label {
+        font-size: 1.1rem;
+        font-weight: 500;
+        color: var(--color-text);
+    }
+
+    .form-input {
+        padding: 1.25rem 1.5rem;
+        font-size: 1.25rem;
+        border: 2px solid var(--color-primary);
+        border-radius: 0.75rem;
+        background-color: var(--color-bg);
+        color: var(--color-text);
+        font-family: inherit;
+    }
+
+    .form-input::placeholder {
+        color: var(--color-text-muted);
+    }
+
+    .form-input:focus {
+        outline: none;
+        border-color: var(--color-accent);
+    }
+
+    .textarea-input {
+        resize: vertical;
+        min-height: 150px;
+        line-height: 1.5;
+    }
+
+    .checkbox-group {
+        margin-top: 0.5rem;
+    }
+
+    .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        cursor: pointer;
+        padding: 1rem;
+        border-radius: 0.75rem;
+        transition: background-color 0.2s;
+    }
+
+    .checkbox-label:hover {
+        background-color: var(--color-bg);
+    }
+
+    .checkbox-box {
+        width: 3rem;
+        height: 3rem;
+        border: 3px solid var(--color-primary);
+        border-radius: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background-color 0.2s, border-color 0.2s;
+    }
+
+    .checkbox-box.checked {
+        background-color: #26b050;
+        border-color: #26b050;
+    }
+
+    .checkmark {
+        font-size: 1.5rem;
+        color: white;
+        font-weight: bold;
+    }
+
+    .checkbox-text {
+        font-size: 1.25rem;
+        font-weight: 500;
+        color: var(--color-text);
+    }
+
+    .error-message {
+        padding: 1rem 1.5rem;
+        background-color: rgba(233, 69, 96, 0.2);
+        border: 2px solid var(--color-accent);
+        border-radius: 0.75rem;
+        color: var(--color-accent);
+        font-size: 1.1rem;
+        font-weight: 500;
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-top: 1rem;
+    }
+
+    .btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 1.25rem 2rem;
+        font-size: 1.25rem;
+        font-weight: 600;
+        border: none;
+        border-radius: 0.75rem;
+        cursor: pointer;
+        transition: background-color 0.2s, transform 0.1s;
+        min-height: 64px;
+        flex: 1;
+        min-width: 150px;
+    }
+
+    .btn:active:not(:disabled) {
+        transform: scale(0.98);
+    }
+
+    .btn:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+    }
+
+    .btn-cancel {
+        background-color: var(--color-bg);
+        color: var(--color-text);
+        border: 2px solid var(--color-primary);
+    }
+
+    .btn-cancel:hover:not(:disabled) {
+        background-color: var(--color-primary);
+    }
+
+    .btn-save {
+        background-color: #26b050;
+        color: white;
+    }
+
+    .btn-save:hover:not(:disabled) {
+        background-color: #1e9040;
+    }
+</style>

@@ -1,5 +1,9 @@
+using GarageUnderground.Api;
 using GarageUnderground.Authentication;
+using GarageUnderground.Client.Services;
 using GarageUnderground.Components;
+using GarageUnderground.Persistence;
+using GarageUnderground.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,6 +15,12 @@ builder.Services.AddRazorComponents()
 
 // Add authentication services
 builder.Services.AddAppAuthentication(builder.Configuration);
+
+// Add persistence services
+builder.Services.AddPersistence(builder.Configuration);
+
+// Add server-side implementation of client services (for SSR pre-rendering)
+builder.Services.AddScoped<IInterventiService, ServerInterventiService>();
 
 var app = builder.Build();
 
@@ -42,5 +52,8 @@ app.MapRazorComponents<App>()
 
 // Map authentication endpoints
 app.MapAuthenticationEndpoints();
+
+// Map API endpoints
+app.MapInterventiEndpoints();
 
 app.Run();
