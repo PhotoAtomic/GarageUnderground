@@ -22,7 +22,7 @@ public static class AuthenticationEndpoints
         // Get available providers
         group.MapGet("/providers", GetProviders);
 
-        // Challenge with specific provider
+        // Challenge with specific provider (initiates OAuth flow)
         group.MapGet("/login/{scheme}", ChallengeProvider);
 
         // Mock login (only for mock auth)
@@ -30,9 +30,6 @@ public static class AuthenticationEndpoints
 
         // Logout
         group.MapPost("/logout", Logout);
-
-        // OAuth callback
-        group.MapGet("/callback", OAuthCallback);
 
         return endpoints;
     }
@@ -47,7 +44,9 @@ public static class AuthenticationEndpoints
         var claims = context.User.Claims;
         var name = claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
         var email = claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value;
-        var provider = claims.FirstOrDefault(c => c.Type == "auth_provider")?.Value;
+        var provider = claims.FirstOrDefault(c => c.Type == "auth_provider")?.Value
+                    ?? claims.FirstOrDefault(c => c.Type == "http://schemas.microsoft.com/identity/claims/identityprovider")?.Value
+                    ?? "Unknown";
         var roles = claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value).ToArray();
 
         return Results.Ok(new UserInfo(true, name, email, provider, roles));
@@ -73,9 +72,11 @@ public static class AuthenticationEndpoints
             return Results.BadRequest("Invalid authentication scheme");
         }
 
+        // The redirect after successful OAuth is configured in AuthenticationServiceExtensions
+        // via OnTicketReceived event
         var properties = new AuthenticationProperties
         {
-            RedirectUri = "/api/auth/callback",
+            RedirectUri = "/dashboard",
             IsPersistent = true
         };
 
@@ -132,34 +133,6 @@ public static class AuthenticationEndpoints
         await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
 
         return Results.Ok(new { success = true, redirectUrl = "/" });
-    }
-
-    private static async Task<IResult> OAuthCallback(HttpContext context)
-    {
-        var result = await context.AuthenticateAsync();
-
-        if (result.Succeeded && result.Principal != null)
-        {
-            // Add auth_provider claim based on the authentication scheme
-            var existingClaims = result.Principal.Claims.ToList();
-            var schemeClaim = existingClaims.FirstOrDefault(c => c.Type == "auth_provider");
-
-            if (schemeClaim == null)
-            {
-                var scheme = result.Ticket?.AuthenticationScheme ?? "Unknown";
-                existingClaims.Add(new Claim("auth_provider", scheme));
-            }
-
-            var identity = new ClaimsIdentity(existingClaims, CookieAuthenticationDefaults.AuthenticationScheme);
-            var principal = new ClaimsPrincipal(identity);
-
-            await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal,
-                new AuthenticationProperties { IsPersistent = true });
-
-            return Results.Redirect("/dashboard");
-        }
-
-        return Results.Redirect("/login?error=auth_failed");
     }
 }
 

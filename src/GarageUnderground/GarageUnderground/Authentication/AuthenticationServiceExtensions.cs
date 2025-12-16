@@ -30,16 +30,22 @@ public static class AuthenticationServiceExtensions
         {
             options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
             options.DefaultChallengeScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+            options.DefaultSignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
         })
         .AddCookie(options =>
         {
-            options.LoginPath = "/login";
-            options.LogoutPath = "/logout";
+            options.LoginPath = "/";
+            options.LogoutPath = "/";
             options.ExpireTimeSpan = TimeSpan.FromDays(30);
             options.SlidingExpiration = true;
             options.Cookie.HttpOnly = true;
             options.Cookie.SameSite = SameSiteMode.Lax;
             options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+            options.Events.OnRedirectToLogin = context =>
+            {
+                context.Response.StatusCode = 401;
+                return Task.CompletedTask;
+            };
         });
 
         var availableProviders = new List<AuthProviderInfo>();
@@ -52,6 +58,24 @@ public static class AuthenticationServiceExtensions
                 options.ClientId = authConfig.Microsoft.ClientId!;
                 options.ClientSecret = authConfig.Microsoft.ClientSecret!;
                 options.SaveTokens = true;
+                options.CallbackPath = "/signin-microsoft";
+
+                // Set the authorization endpoint based on TenantId
+                // "common" = multi-tenant (default), "consumers" = personal only, 
+                // "organizations" = work/school only, or specific tenant GUID
+                var tenantId = string.IsNullOrWhiteSpace(authConfig.Microsoft.TenantId)
+                    ? "common"
+                    : authConfig.Microsoft.TenantId;
+
+                options.AuthorizationEndpoint = $"https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/authorize";
+                options.TokenEndpoint = $"https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/token";
+
+                // After successful authentication, redirect to dashboard
+                options.Events.OnTicketReceived = context =>
+                {
+                    context.ReturnUri = "/dashboard";
+                    return Task.CompletedTask;
+                };
             });
 
             availableProviders.Add(new AuthProviderInfo(
@@ -68,6 +92,14 @@ public static class AuthenticationServiceExtensions
                 options.ClientId = authConfig.Google.ClientId!;
                 options.ClientSecret = authConfig.Google.ClientSecret!;
                 options.SaveTokens = true;
+                options.CallbackPath = "/signin-google";
+
+                // After successful authentication, redirect to dashboard
+                options.Events.OnTicketReceived = context =>
+                {
+                    context.ReturnUri = "/dashboard";
+                    return Task.CompletedTask;
+                };
             });
 
             availableProviders.Add(new AuthProviderInfo(
