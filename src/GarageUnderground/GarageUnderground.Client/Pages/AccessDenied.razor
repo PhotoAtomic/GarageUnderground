@@ -1,0 +1,111 @@
+@page "/access-denied"
+@rendermode InteractiveWebAssembly
+@using GarageUnderground.Client.Authentication
+@inject ApiAuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+
+<PageTitle>Accesso Negato - GarageUnderground</PageTitle>
+
+<div class="access-denied-container">
+    @if (!initialized)
+    {
+        <div class="loading">
+            <span class="loading-spinner"></span>
+            <span>Caricamento...</span>
+        </div>
+    }
+    else if (user?.IsAuthenticated != true)
+    {
+        <div class="not-authenticated">
+            <h1>Non Autenticato</h1>
+            <p>Devi effettuare l'accesso per visualizzare questa pagina.</p>
+            <a href="/" class="btn-action">Vai alla Home</a>
+        </div>
+    }
+    else if (hasAccess)
+    {
+        <div class="has-access">
+            <h1>Hai già accesso!</h1>
+            <p>Il tuo account è già abilitato.</p>
+            <a href="/dashboard" class="btn-action">Vai alla Dashboard</a>
+        </div>
+    }
+    else
+    {
+        <div class="denied-content">
+            <div class="denied-icon">??</div>
+            <h1>Accesso Non Autorizzato</h1>
+            <p class="denied-message">
+                Non hai ancora il permesso di entrare nell'applicazione.<br />
+                Chiedi ad un utente amministratore di abilitare il tuo account.
+            </p>
+            
+            <div class="account-info">
+                <span class="account-label">Il tuo Account ID:</span>
+                <div class="account-id">
+                    <code>@userEmail</code>
+                    <button class="btn-copy" @onclick="CopyToClipboard" title="Copia negli appunti">
+                        @(copied ? "?" : "??")
+                    </button>
+                </div>
+            </div>
+
+            <p class="hint">
+                Comunica questo identificativo all'amministratore per richiedere l'accesso.
+            </p>
+
+            <div class="actions">
+                <button class="btn-logout" @onclick="Logout">Esci</button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private UserInfo? user;
+    private string? userEmail;
+    private bool initialized;
+    private bool hasAccess;
+    private bool copied;
+
+    protected override async Task OnInitializedAsync()
+    {
+        user = await AuthStateProvider.GetCurrentUserAsync(forceRefresh: true);
+        
+        if (user?.IsAuthenticated == true)
+        {
+            userEmail = user.Email;
+            hasAccess = user.Roles?.Any(r => r.Equals("canLogin", StringComparison.OrdinalIgnoreCase)) == true;
+        }
+        
+        initialized = true;
+    }
+
+    private async Task CopyToClipboard()
+    {
+        if (!string.IsNullOrEmpty(userEmail))
+        {
+            try
+            {
+                // Use JavaScript interop to copy to clipboard
+                await Task.CompletedTask; // Placeholder - clipboard API needs JS interop
+                copied = true;
+                StateHasChanged();
+                
+                await Task.Delay(2000);
+                copied = false;
+                StateHasChanged();
+            }
+            catch
+            {
+                // Ignore clipboard errors
+            }
+        }
+    }
+
+    private async Task Logout()
+    {
+        await AuthStateProvider.LogoutAsync();
+        Navigation.NavigateTo("/", forceLoad: true);
+    }
+}

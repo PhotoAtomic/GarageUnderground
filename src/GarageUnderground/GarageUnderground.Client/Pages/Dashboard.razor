@@ -2,7 +2,6 @@
 @using GarageUnderground.Client.Authentication
 @using GarageUnderground.Client.Models
 @using GarageUnderground.Client.Services
-@using Microsoft.AspNetCore.Components.Authorization
 @inject ApiAuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Navigation
 @inject IInterventiService InterventiService
@@ -103,12 +102,6 @@ else if (user?.IsAuthenticated == true)
                 }
             </div>
         }
-
-        <footer class="dashboard-footer">
-            <button class="btn btn-logout" @onclick="HandleLogout">
-                Logout
-            </button>
-        </footer>
     </section>
 }
 
@@ -131,6 +124,14 @@ else if (user?.IsAuthenticated == true)
         if (user?.IsAuthenticated != true)
         {
             Navigation.NavigateTo("/");
+            return;
+        }
+
+        // Check if user has canLogin role
+        var hasLoginRole = user.Roles?.Any(r => r.Equals("canLogin", StringComparison.OrdinalIgnoreCase)) == true;
+        if (!hasLoginRole)
+        {
+            Navigation.NavigateTo("/access-denied");
             return;
         }
 
@@ -185,13 +186,6 @@ else if (user?.IsAuthenticated == true)
     private void NavigateToEditIntervento(Guid interventoId)
     {
         Navigation.NavigateTo($"/intervento/modifica/{interventoId}");
-    }
-
-    private async Task HandleLogout()
-    {
-        isLoading = true;
-        await AuthStateProvider.LogoutAsync();
-        Navigation.NavigateTo("/");
     }
 }
 

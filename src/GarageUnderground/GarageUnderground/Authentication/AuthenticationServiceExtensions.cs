@@ -146,6 +146,17 @@ public static class AuthenticationServiceExtensions
 
                         // Now enrich with internal database roles
                         await EnrichTicketAsync(context);
+
+                        // Check if user has canLogin role, redirect to access-denied if not
+                        var hasLoginRole = context.Principal?.Claims
+                            .Where(c => c.Type == ClaimTypes.Role)
+                            .Any(c => c.Value.Equals("canLogin", StringComparison.OrdinalIgnoreCase)) == true;
+
+                        if (!hasLoginRole)
+                        {
+                            logger?.LogWarning("User does not have canLogin role, redirecting to access-denied");
+                            context.ReturnUri = "/access-denied";
+                        }
                     }
                 };
             });
@@ -171,7 +182,7 @@ public static class AuthenticationServiceExtensions
                 options.Scope.Add("profile");
                 options.Scope.Add("email");
 
-                // After successful authentication, enrich claims and redirect to dashboard
+                // After successful authentication, enrich claims and redirect
                 options.Events.OnTicketReceived = async context =>
                 {
                     context.ReturnUri = "/dashboard";
@@ -181,6 +192,18 @@ public static class AuthenticationServiceExtensions
                     identity?.AddClaim(new Claim("auth_provider", "Google"));
                     
                     await EnrichTicketAsync(context);
+
+                    // Check if user has canLogin role, redirect to access-denied if not
+                    var hasLoginRole = context.Principal?.Claims
+                        .Where(c => c.Type == ClaimTypes.Role)
+                        .Any(c => c.Value.Equals("canLogin", StringComparison.OrdinalIgnoreCase)) == true;
+
+                    if (!hasLoginRole)
+                    {
+                        var logger = context.HttpContext.RequestServices.GetService<ILogger<ClaimsEnrichmentService>>();
+                        logger?.LogWarning("User does not have canLogin role, redirecting to access-denied");
+                        context.ReturnUri = "/access-denied";
+                    }
                 };
             });
 

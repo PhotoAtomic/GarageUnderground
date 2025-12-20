@@ -221,7 +221,13 @@ public static class AuthenticationEndpoints
         await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, enrichedPrincipal,
             new AuthenticationProperties { IsPersistent = true });
 
-        return Results.Ok(new { success = true, redirectUrl = "/dashboard" });
+        // Check if user has canLogin role
+        var hasLoginRole = enrichedPrincipal.Claims
+            .Where(c => c.Type == ClaimTypes.Role)
+            .Any(c => c.Value.Equals("canLogin", StringComparison.OrdinalIgnoreCase));
+
+        var redirectUrl = hasLoginRole ? "/dashboard" : "/access-denied";
+        return Results.Ok(new { success = true, redirectUrl });
     }
 
     private static async Task<IResult> Logout(HttpContext context)
