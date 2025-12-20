@@ -3,6 +3,7 @@
 @using GarageUnderground.Client.Authentication
 @inject ApiAuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
 
 <PageTitle>Accesso Negato - GarageUnderground</PageTitle>
 
@@ -33,7 +34,11 @@
     else
     {
         <div class="denied-content">
-            <div class="denied-icon">??</div>
+            <div class="denied-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636"/>
+                </svg>
+            </div>
             <h1>Accesso Non Autorizzato</h1>
             <p class="denied-message">
                 Non hai ancora il permesso di entrare nell'applicazione.<br />
@@ -45,7 +50,19 @@
                 <div class="account-id">
                     <code>@userEmail</code>
                     <button class="btn-copy" @onclick="CopyToClipboard" title="Copia negli appunti">
-                        @(copied ? "?" : "??")
+                        @if (copied)
+                        {
+                            <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"/>
+                            </svg>
+                        }
+                        else
+                        {
+                            <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                            </svg>
+                        }
                     </button>
                 </div>
             </div>
@@ -88,7 +105,7 @@
             try
             {
                 // Use JavaScript interop to copy to clipboard
-                await Task.CompletedTask; // Placeholder - clipboard API needs JS interop
+                await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", userEmail);
                 copied = true;
                 StateHasChanged();
                 
@@ -98,7 +115,7 @@
             }
             catch
             {
-                // Ignore clipboard errors
+                // Ignore clipboard errors (e.g., if clipboard API is not available)
             }
         }
     }

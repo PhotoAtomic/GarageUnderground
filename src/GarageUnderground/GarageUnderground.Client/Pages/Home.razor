@@ -1,33 +1,45 @@
 @page "/"
 @using GarageUnderground.Client.Authentication
-@using Microsoft.AspNetCore.Components.Authorization
 @inject ApiAuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Navigation
 @rendermode InteractiveWebAssembly
 
-<PageTitle>GarageUnderground</PageTitle>
+<PageTitle>GarageUnderground - Gestione Officina</PageTitle>
 
-<section class="hero">
-    <h1>GarageUnderground</h1>
-    <p>Your mobile-ready app is ready to go.</p>
+<section class="landing">
+    <div class="hero">
+        <div class="hero-content">
+            <div class="hero-logo">
+                <svg class="wrench-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                </svg>
+            </div>
+            <h1>GarageUnderground</h1>
+            <p class="tagline">La tua officina, sempre sotto controllo</p>
+            <p class="subtitle">Gestisci interventi, clienti e pagamenti in modo semplice e veloce</p>
+        </div>
+    </div>
 
     @if (isLoading)
     {
-        <div class="loading-spinner"></div>
+        <div class="login-section">
+            <div class="loading-spinner"></div>
+        </div>
     }
     else if (providers != null)
     {
         <div class="login-section">
+            <h2>Inizia Ora</h2>
             @if (providers.IsMockAuthEnabled)
             {
                 <div class="mock-login-form">
                     <input type="text"
                            @bind="mockDisplayName"
-                           placeholder="Your name (optional)"
+                           placeholder="Il tuo nome (opzionale)"
                            class="input-field" />
                     <button class="btn btn-primary" @onclick="HandleMockLogin">
                         <span class="btn-icon dev-icon"></span>
-                        Quick Login
+                        Accedi
                     </button>
                 </div>
             }
@@ -39,13 +51,59 @@
                         <button class="btn btn-provider @provider.IconClass"
                                 @onclick="() => HandleProviderLogin(provider.Scheme)">
                             <span class="btn-icon @provider.IconClass"></span>
-                            Sign in with @provider.DisplayName
+                            Accedi con @provider.DisplayName
                         </button>
                     }
                 </div>
             }
         </div>
     }
+
+    <div class="features">
+        <div class="feature-card card-search">
+            <div class="feature-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="6" rx="1"/>
+                    <path d="M3 13h8"/>
+                    <path d="M3 17h6"/>
+                    <circle cx="17" cy="16" r="3"/>
+                    <path d="m21 21-1.9-1.9"/>
+                </svg>
+            </div>
+            <h3>Ricerca per Targa</h3>
+            <p>Trova istantaneamente lo storico completo di ogni veicolo con una semplice ricerca</p>
+        </div>
+        <div class="feature-card card-interventi">
+            <div class="feature-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                </svg>
+            </div>
+            <h3>Gestione Interventi</h3>
+            <p>Registra lavorazioni, costi e dettagli tecnici per ogni intervento effettuato</p>
+        </div>
+        <div class="feature-card card-pagamenti">
+            <div class="feature-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/>
+                    <path d="M12 18V6"/>
+                </svg>
+            </div>
+            <h3>Traccia Pagamenti</h3>
+            <p>Monitora lo stato dei pagamenti e tieni sotto controllo le fatture in sospeso</p>
+        </div>
+        <div class="feature-card card-mobile">
+            <div class="feature-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+                    <path d="M12 18h.01"/>
+                </svg>
+            </div>
+            <h3>Sempre con Te</h3>
+            <p>Accedi da qualsiasi dispositivo, desktop o mobile, ovunque tu sia</p>
+        </div>
+    </div>
 </section>
 
 @code {
@@ -59,7 +117,9 @@
         var user = await AuthStateProvider.GetCurrentUserAsync();
         if (user?.IsAuthenticated == true)
         {
-            Navigation.NavigateTo("/dashboard");
+            // Check if user has canLogin role
+            var hasLoginRole = user.Roles?.Any(r => r.Equals("canLogin", StringComparison.OrdinalIgnoreCase)) == true;
+            Navigation.NavigateTo(hasLoginRole ? "/dashboard" : "/access-denied");
             return;
         }
 
@@ -89,35 +149,146 @@
 }
 
 <style>
-    .hero {
+    .landing {
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: center;
-        text-align: center;
-        min-height: 70vh;
-        gap: 1.5rem;
         padding: 1rem;
+        gap: 2rem;
+    }
+
+    .hero {
+        text-align: center;
+        padding: 2rem 1rem;
+        max-width: 600px;
+    }
+
+    .hero-logo {
+        margin-bottom: 1rem;
+    }
+
+    .wrench-icon {
+        width: 4rem;
+        height: 4rem;
+        color: var(--color-accent);
+        filter: drop-shadow(0 0 20px rgba(232, 72, 95, 0.5));
     }
 
     .hero h1 {
-        font-size: clamp(1.75rem, 5vw, 2.5rem);
+        font-size: clamp(2rem, 6vw, 3rem);
         font-weight: 700;
-        margin: 0;
+        margin: 0 0 0.5rem 0;
         color: var(--color-text);
     }
 
-    .hero p {
-        font-size: clamp(1rem, 3vw, 1.25rem);
+    .tagline {
+        font-size: clamp(1.1rem, 3vw, 1.4rem);
+        color: var(--color-accent);
+        font-weight: 600;
+        margin: 0 0 0.5rem 0;
+    }
+
+    .subtitle {
+        font-size: clamp(0.9rem, 2.5vw, 1.1rem);
         color: var(--color-text-muted);
         margin: 0;
-        max-width: 30ch;
+    }
+
+    .features {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 1rem;
+        width: 100%;
+        max-width: 900px;
+        padding: 0 1rem;
+    }
+
+    .feature-card {
+        position: relative;
+        border-radius: 1rem;
+        padding: 1.5rem;
+        text-align: center;
+        transition: transform 0.3s, box-shadow 0.3s;
+        overflow: hidden;
+    }
+
+    .feature-card::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 1rem;
+        padding: 2px;
+        background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0));
+        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+    }
+
+    .card-search {
+        background: linear-gradient(135deg, #1a237e 0%, #283593 50%, #3949ab 100%);
+    }
+
+    .card-interventi {
+        background: linear-gradient(135deg, #b71c1c 0%, #c62828 50%, #e53935 100%);
+    }
+
+    .card-pagamenti {
+        background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 50%, #43a047 100%);
+    }
+
+    .card-mobile {
+        background: linear-gradient(135deg, #e65100 0%, #ef6c00 50%, #fb8c00 100%);
+    }
+
+    .feature-card:hover {
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    }
+
+    .feature-icon {
+        width: 3.5rem;
+        height: 3.5rem;
+        margin: 0 auto 1rem;
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(10px);
+    }
+
+    .feature-icon svg {
+        width: 2rem;
+        height: 2rem;
+        color: white;
+    }
+
+    .feature-card h3 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: white;
+        margin: 0 0 0.5rem 0;
+    }
+
+    .feature-card p {
+        font-size: 0.9rem;
+        color: rgba(255, 255, 255, 0.85);
+        margin: 0;
+        line-height: 1.5;
     }
 
     .login-section {
-        margin-top: 2rem;
+        margin-top: 1rem;
         width: 100%;
         max-width: 320px;
+        text-align: center;
+    }
+
+    .login-section h2 {
+        font-size: 1.25rem;
+        color: var(--color-text);
+        margin: 0 0 1rem 0;
     }
 
     .mock-login-form {
@@ -171,12 +342,14 @@
     }
 
     .btn-primary {
-        background-color: var(--color-accent);
+        background: linear-gradient(135deg, #e8485f 0%, #d63a52 100%);
         color: white;
+        box-shadow: 0 4px 15px rgba(232, 72, 95, 0.3);
     }
 
     .btn-primary:hover {
-        background-color: #d63a52;
+        background: linear-gradient(135deg, #d63a52 0%, #c62d45 100%);
+        box-shadow: 0 6px 20px rgba(232, 72, 95, 0.4);
     }
 
     .btn-provider {
@@ -224,9 +397,20 @@
         border-top-color: var(--color-accent);
         border-radius: 50%;
         animation: spin 1s linear infinite;
+        margin: 0 auto;
     }
 
     @@keyframes spin {
         to { transform: rotate(360deg); }
+    }
+
+    @@media (max-width: 600px) {
+        .features {
+            grid-template-columns: 1fr;
+        }
+        
+        .feature-card {
+            padding: 1.25rem;
+        }
     }
 </style>
