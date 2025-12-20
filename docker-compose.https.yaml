@@ -1,0 +1,19 @@
+# Docker Compose override for HTTPS configuration
+# Usage: docker compose -f docker-compose.yaml -f docker-compose.https.yaml up -d
+#
+# Prerequisites:
+# 1. Create a ./certs directory
+# 2. Place your .pfx certificate as ./certs/garageunderground.pfx
+# 3. Set CERTIFICATE_PASSWORD in your .env file
+#
+# To generate a self-signed certificate for testing:
+#   openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes
+#   openssl pkcs12 -export -out garageunderground.pfx -inkey key.pem -in cert.pem
+
+services:
+  garageunderground:
+    environment:
+      # Enable HTTPS endpoint
+      Kestrel__Endpoints__Https__Url: https://+:443
+      Kestrel__Endpoints__Https__Certificate__Path: /https/garageunderground.pfx
+      Kestrel__Endpoints__Https__Certificate__Password: ${CERTIFICATE_PASSWORD:-}

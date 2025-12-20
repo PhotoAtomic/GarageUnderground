@@ -6,33 +6,46 @@ services:
     container_name: garageunderground
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
     volumes:
       # Mount volume for database persistence
       - garageunderground-data:/data
       # Mount volume for ASP.NET Data Protection keys
       - garageunderground-keys:/root/.aspnet/DataProtection-Keys
+      # Mount certificate directory for HTTPS (optional)
+      # Expected file: ./certs/<certificate-name>.pfx
+      - ./certs:/https:ro
     environment:
-      # Override appsettings.json values using environment variables
-      # Database configuration
-      - LiteDb__ConnectionString=Filename=/data/garageunderground.db;Connection=shared
+      # ASP.NET Core configuration
+      ASPNETCORE_ENVIRONMENT: Production
+      # Override default URL binding so Kestrel uses explicit endpoints below
+      ASPNETCORE_URLS: ""
       
-      # Microsoft Entra ID authentication (optional)
-      - Authentication__Microsoft__ClientId=${MICROSOFT_CLIENT_ID:-}
-      - Authentication__Microsoft__ClientSecret=${MICROSOFT_CLIENT_SECRET:-}
-      - Authentication__Microsoft__TenantId=${MICROSOFT_TENANT_ID:-}
+      # Kestrel HTTP endpoint
+      Kestrel__Endpoints__Http__Url: http://+:80
+      
+      # Kestrel HTTPS endpoint (optional - requires certificate)
+      # Uncomment and configure if using HTTPS with a mounted certificate
+      # Kestrel__Endpoints__Https__Url: https://+:443
+      # Kestrel__Endpoints__Https__Certificate__Path: /https/garageunderground.pfx
+      # Kestrel__Endpoints__Https__Certificate__Password: ${CERTIFICATE_PASSWORD:-}
+      
+      # Database configuration
+      LiteDb__ConnectionString: Filename=/data/garageunderground.db;Connection=shared
+      
+      # Microsoft Entra ID authentication (optional - leave empty to use mock auth)
+      Authentication__Microsoft__ClientId: ${MICROSOFT_CLIENT_ID:-}
+      Authentication__Microsoft__ClientSecret: ${MICROSOFT_CLIENT_SECRET:-}
+      Authentication__Microsoft__TenantId: ${MICROSOFT_TENANT_ID:-}
       
       # Google authentication (optional)
-      - Authentication__Google__ClientId=${GOOGLE_CLIENT_ID:-}
-      - Authentication__Google__ClientSecret=${GOOGLE_CLIENT_SECRET:-}
-      
-      # ASP.NET Core configuration
-      - ASPNETCORE_ENVIRONMENT=Production
-      - ASPNETCORE_URLS=http://+:8080
+      Authentication__Google__ClientId: ${GOOGLE_CLIENT_ID:-}
+      Authentication__Google__ClientSecret: ${GOOGLE_CLIENT_SECRET:-}
       
       # Logging
-      - Logging__LogLevel__Default=Information
-      - Logging__LogLevel__Microsoft.AspNetCore=Warning
+      Logging__LogLevel__Default: Information
+      Logging__LogLevel__Microsoft.AspNetCore: Warning
 
 volumes:
   garageunderground-data:
