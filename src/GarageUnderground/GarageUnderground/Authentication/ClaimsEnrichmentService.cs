@@ -6,10 +6,12 @@ namespace GarageUnderground.Authentication;
 /// <summary>
 /// Service that enriches user claims with additional roles from the internal database.
 /// Combines roles from authentication providers (e.g., Entra ID App Roles) with internal database roles.
+/// Also registers users when they log in for the first time.
 /// </summary>
 public sealed class ClaimsEnrichmentService : IClaimsEnrichmentService
 {
     private readonly IUserRolesRepository userRolesRepository;
+    private readonly IUserRegistrationRepository userRegistrationRepository;
     private readonly ILogger<ClaimsEnrichmentService> logger;
 
     /// <summary>
@@ -24,14 +26,27 @@ public sealed class ClaimsEnrichmentService : IClaimsEnrichmentService
 
     public ClaimsEnrichmentService(
         IUserRolesRepository userRolesRepository,
+        IUserRegistrationRepository userRegistrationRepository,
         ILogger<ClaimsEnrichmentService> logger)
     {
         this.userRolesRepository = userRolesRepository;
+        this.userRegistrationRepository = userRegistrationRepository;
         this.logger = logger;
     }
 
     public async Task<ClaimsPrincipal> EnrichClaimsAsync(
         ClaimsPrincipal principal,
+        CancellationToken cancellationToken = default)
+    {
+        return await EnrichClaimsAsync(principal, isNewLogin: false, cancellationToken);
+    }
+
+    /// <summary>
+    /// Enriches claims and optionally registers the user (only on new login).
+    /// </summary>
+    public async Task<ClaimsPrincipal> EnrichClaimsAsync(
+        ClaimsPrincipal principal,
+        bool isNewLogin,
         CancellationToken cancellationToken = default)
     {
         if (principal.Identity?.IsAuthenticated != true)
@@ -43,6 +58,12 @@ public sealed class ClaimsEnrichmentService : IClaimsEnrichmentService
         if (originalIdentity == null)
         {
             return principal;
+        }
+
+        // Register or update user ONLY on new login (not on every request)
+        if (isNewLogin)
+        {
+            await RegisterUserAsync(principal, cancellationToken);
         }
 
         // Get existing roles from provider (e.g., Entra ID App Roles)
@@ -104,6 +125,49 @@ public sealed class ClaimsEnrichmentService : IClaimsEnrichmentService
         }
 
         return new ClaimsPrincipal(enrichedIdentity);
+    }
+
+    /// <summary>
+    /// Registers the user in the database or updates their last login time.
+    /// </summary>
+    private async Task RegisterUserAsync(ClaimsPrincipal principal, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var email = GetEmail(principal);
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                return;
+            }
+
+            var displayName = GetDisplayName(principal);
+            var provider = principal.Claims.FirstOrDefault(c => c.Type == "auth_provider")?.Value;
+
+            await userRegistrationRepository.RegisterOrUpdateAsync(email, displayName, provider, cancellationToken);
+            logger.LogDebug("User {Email} registered/updated in database", email);
+        }
+        catch (Exception ex)
+        {
+            // Don't fail authentication if registration fails
+            logger.LogWarning(ex, "Failed to register user in database");
+        }
+    }
+
+    private static string? GetEmail(ClaimsPrincipal principal)
+    {
+        var claims = principal.Claims;
+        return claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value
+            ?? claims.FirstOrDefault(c => c.Type == "email")?.Value
+            ?? claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress")?.Value
+            ?? claims.FirstOrDefault(c => c.Type == "preferred_username")?.Value;
+    }
+
+    private static string? GetDisplayName(ClaimsPrincipal principal)
+    {
+        var claims = principal.Claims;
+        return claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value
+            ?? claims.FirstOrDefault(c => c.Type == "name")?.Value
+            ?? claims.FirstOrDefault(c => c.Type == ClaimTypes.GivenName)?.Value;
     }
 
     public async Task<IReadOnlyList<string>> GetInternalRolesAsync(

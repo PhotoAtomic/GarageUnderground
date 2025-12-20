@@ -14,6 +14,13 @@
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    min-width: 0;
+}
+
 .app-title {
     font-size: 1.25rem;
     font-weight: 600;
@@ -24,6 +31,11 @@
 
 .app-title:hover {
     color: var(--color-accent);
+}
+
+/* Desktop navigation - inside header */
+.desktop-nav {
+    display: none;
 }
 
 .header-right {
@@ -38,11 +50,10 @@
     align-items: center;
     gap: 0.5rem;
     min-width: 0;
-    max-width: 400px;
 }
 
 .user-details {
-    display: flex;
+    display: none;
     flex-direction: column;
     align-items: flex-end;
     min-width: 0;
@@ -74,7 +85,6 @@
     gap: 0.25rem;
     align-items: center;
     flex-shrink: 0;
-    max-width: 200px;
 }
 
 .user-provider {
@@ -96,10 +106,6 @@
     padding: 0.1rem 0.35rem;
     border-radius: 0.75rem;
     white-space: nowrap;
-    text-transform: lowercase;
-    max-width: 80px;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
 .menu-toggle {
@@ -146,7 +152,8 @@
     top: 6px;
 }
 
-.app-nav {
+/* Mobile navigation - dropdown menu */
+.mobile-nav {
     position: fixed;
     top: calc(var(--header-height) + var(--safe-area-top));
     left: 0;
@@ -164,7 +171,7 @@
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
 }
 
-.app-nav.open {
+.mobile-nav.open {
     transform: translateY(0);
     opacity: 1;
     pointer-events: auto;
@@ -209,51 +216,48 @@
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23eaeaea' viewBox='0 0 16 16'%3E%3Cpath d='M0 1.5A1.5 1.5 0 0 1 1.5 0h2A1.5 1.5 0 0 1 5 1.5v2A1.5 1.5 0 0 1 3.5 5h-2A1.5 1.5 0 0 1 0 3.5v-2zM0 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V8zm1 3v2a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2H1zm14-1V8a1 1 0 0 0-1-1H2a1 1 0 0 0-1 1v2h14zM2 8.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zm0 4a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1h-6a.5.5 0 0 1-.5-.5z'/%3E%3C/svg%3E");
 }
 
-/* Mobile: nasconde user-name e ruoli su schermi piccoli */
-@media (max-width: 480px) {
-    .user-name {
+.admin-icon {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23eaeaea' viewBox='0 0 16 16'%3E%3Cpath d='M11 5a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM8 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm.256 7a4.474 4.474 0 0 1-.229-1.004H3c.001-.246.154-.986.832-1.664C4.484 10.68 5.711 10 8 10c.26 0 .507.009.74.025.226-.341.496-.65.804-.918C9.077 9.038 8.564 9 8 9c-5 0-6 3-6 4s1 1 1 1h5.256Zm3.63-4.54c.18-.613 1.048-.613 1.229 0l.043.148a.64.64 0 0 0 .921.382l.136-.074c.561-.306 1.175.308.87.869l-.075.136a.64.64 0 0 0 .382.92l.149.045c.612.18.612 1.048 0 1.229l-.15.043a.64.64 0 0 0-.38.921l.074.136c.305.561-.309 1.175-.87.87l-.136-.075a.64.64 0 0 0-.92.382l-.045.149c-.18.612-1.048.612-1.229 0l-.043-.15a.64.64 0 0 0-.921-.38l-.136.074c-.561.305-1.175-.309-.87-.87l.075-.136a.64.64 0 0 0-.382-.92l-.148-.045c-.613-.18-.613-1.048 0-1.229l.148-.043a.64.64 0 0 0 .382-.921l-.074-.136c-.306-.561.308-1.175.869-.87l.136.075a.64.64 0 0 0 .92-.382l.045-.148ZM14 12.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0Z'/%3E%3C/svg%3E");
+}
+
+/* Desktop styles */
+@media (min-width: 768px) {
+    .menu-toggle {
         display: none;
     }
-    
-    .user-info {
-        max-width: none;
+
+    .mobile-nav {
+        display: none;
     }
-    
+
+    .desktop-nav {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .desktop-nav ::deep .nav-link {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.9rem;
+    }
+
+    .user-details {
+        display: flex;
+    }
+
+    .user-name {
+        max-width: 200px;
+    }
+}
+
+/* Small mobile - hide some elements */
+@media (max-width: 480px) {
     .user-tags {
         max-width: 120px;
     }
     
     .user-role {
         display: none;
-    }
-}
-
-@media (min-width: 768px) {
-    .menu-toggle {
-        display: none;
-    }
-
-    .app-nav {
-        position: static;
-        flex-direction: row;
-        transform: none;
-        opacity: 1;
-        pointer-events: auto;
-        background: transparent;
-        box-shadow: none;
-        padding: 0;
-        gap: 0.5rem;
-    }
-
-    .app-header {
-        gap: 2rem;
-    }
-
-    .app-nav ::deep .nav-link {
-        padding: 0.5rem 1rem;
-    }
-    
-    .user-name {
-        max-width: 200px;
     }
 }

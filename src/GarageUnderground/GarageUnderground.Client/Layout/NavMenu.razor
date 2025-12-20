@@ -4,7 +4,34 @@
 @inject ApiAuthenticationStateProvider AuthStateProvider
 
 <header class="app-header">
-    <a class="app-title" href="">GarageUnderground</a>
+    <div class="header-left">
+        <a class="app-title" href="">GarageUnderground</a>
+        
+        <nav class="app-nav desktop-nav">
+            @if (user?.IsAuthenticated == true)
+            {
+                <NavLink class="nav-link" href="dashboard" Match="NavLinkMatch.All">
+                    <span class="nav-icon dashboard-icon" aria-hidden="true"></span>
+                    Dashboard
+                </NavLink>
+                
+                @if (HasRole("canAdmin"))
+                {
+                    <NavLink class="nav-link" href="admin/roles" Match="NavLinkMatch.All">
+                        <span class="nav-icon admin-icon" aria-hidden="true"></span>
+                        Gestione Ruoli
+                    </NavLink>
+                }
+            }
+            else
+            {
+                <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                    <span class="nav-icon home-icon" aria-hidden="true"></span>
+                    Home
+                </NavLink>
+            }
+        </nav>
+    </div>
     
     <div class="header-right">
         @if (user?.IsAuthenticated == true)
@@ -35,13 +62,21 @@
     </div>
 </header>
 
-<nav class="app-nav @(menuOpen ? "open" : "")" @onclick="CloseMenu">
+<nav class="app-nav mobile-nav @(menuOpen ? "open" : "")" @onclick="CloseMenu">
     @if (user?.IsAuthenticated == true)
     {
         <NavLink class="nav-link" href="dashboard" Match="NavLinkMatch.All">
             <span class="nav-icon dashboard-icon" aria-hidden="true"></span>
             Dashboard
         </NavLink>
+        
+        @if (HasRole("canAdmin"))
+        {
+            <NavLink class="nav-link" href="admin/roles" Match="NavLinkMatch.All">
+                <span class="nav-icon admin-icon" aria-hidden="true"></span>
+                Gestione Ruoli
+            </NavLink>
+        }
     }
     else
     {
@@ -73,6 +108,11 @@
     private async Task RefreshUserAsync()
     {
         user = await AuthStateProvider.GetCurrentUserAsync(forceRefresh: true);
+    }
+
+    private bool HasRole(string roleName)
+    {
+        return user?.Roles?.Any(r => r.Equals(roleName, StringComparison.OrdinalIgnoreCase)) == true;
     }
 
     private string GetDisplayName()

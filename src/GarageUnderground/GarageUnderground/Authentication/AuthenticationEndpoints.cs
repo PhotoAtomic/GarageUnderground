@@ -35,11 +35,15 @@ public static class AuthenticationEndpoints
         // Logout
         group.MapPost("/logout", Logout);
 
+        // Debug endpoints - protected with CanAdmin policy (case-insensitive)
+        var debugGroup = endpoints.MapGroup("/api/auth/debug")
+            .RequireAuthorization("CanAdmin");
+
         // Debug: Add role to current user (temporary for testing)
-        group.MapPost("/debug/add-role", AddRoleToCurrentUser);
+        debugGroup.MapPost("/add-role", AddRoleToCurrentUser);
 
         // Debug: Get internal roles for current user
-        group.MapGet("/debug/internal-roles", GetInternalRoles);
+        debugGroup.MapGet("/internal-roles", GetInternalRoles);
 
         return endpoints;
     }
@@ -195,22 +199,24 @@ public static class AuthenticationEndpoints
             Expires = DateTimeOffset.UtcNow.AddDays(30)
         });
 
-        // Create base claims
+        // Create base claims with ALL available roles for mock user
         var email = $"{displayName.ToLowerInvariant().Replace(" ", ".")}@mock.local";
         var baseClaims = new List<Claim>
         {
             new Claim(ClaimTypes.NameIdentifier, "mock-user-id"),
             new Claim(ClaimTypes.Name, displayName),
             new Claim(ClaimTypes.Email, email),
-            new Claim(ClaimTypes.Role, "User"),
+            // Mock user gets all roles for testing purposes
+            new Claim(ClaimTypes.Role, "canAdmin"),
+            new Claim(ClaimTypes.Role, "canLogin"),
             new Claim("auth_provider", MockAuthenticationHandler.SchemeName)
         };
 
         var identity = new ClaimsIdentity(baseClaims, CookieAuthenticationDefaults.AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);
 
-        // Enrich with internal roles from database
-        var enrichedPrincipal = await claimsEnrichmentService.EnrichClaimsAsync(principal);
+        // Enrich with internal roles from database (this is a new login)
+        var enrichedPrincipal = await claimsEnrichmentService.EnrichClaimsAsync(principal, isNewLogin: true);
 
         await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, enrichedPrincipal,
             new AuthenticationProperties { IsPersistent = true });

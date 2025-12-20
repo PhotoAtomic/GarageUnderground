@@ -55,5 +55,6 @@ app.MapAuthenticationEndpoints();
 
 // Map API endpoints
 app.MapInterventiEndpoints();
+app.MapAdminRolesEndpoints();
 
 app.Run();

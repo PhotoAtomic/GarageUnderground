@@ -47,6 +47,7 @@ public static class AuthenticationServiceExtensions
         {
             options.LoginPath = "/";
             options.LogoutPath = "/";
+            options.AccessDeniedPath = "/";
             options.ExpireTimeSpan = TimeSpan.FromDays(30);
             options.SlidingExpiration = true;
             options.Cookie.HttpOnly = true;
@@ -55,6 +56,11 @@ public static class AuthenticationServiceExtensions
             options.Events.OnRedirectToLogin = context =>
             {
                 context.Response.StatusCode = 401;
+                return Task.CompletedTask;
+            };
+            options.Events.OnRedirectToAccessDenied = context =>
+            {
+                context.Response.StatusCode = 403;
                 return Task.CompletedTask;
             };
             // Enrich claims when validating the cookie principal
@@ -103,25 +109,38 @@ public static class AuthenticationServiceExtensions
                         context.ReturnUri = "/dashboard";
 
                         var identity = context.Principal?.Identity as ClaimsIdentity;
+                        var logger = context.HttpContext.RequestServices.GetService<ILogger<ClaimsEnrichmentService>>();
+                        
                         if (identity != null)
                         {
+                            // Log ALL claims for debugging
+                            logger?.LogInformation("=== All claims from Entra ID token ===");
+                            foreach (var claim in identity.Claims)
+                            {
+                                logger?.LogInformation("Claim: {Type} = {Value}", claim.Type, claim.Value);
+                            }
+                            logger?.LogInformation("=== End of claims ===");
+
                             // Add auth_provider claim for tracking
                             identity.AddClaim(new Claim("auth_provider", MicrosoftScheme));
 
                             // Map Entra ID "roles" claim to standard ClaimTypes.Role
+                            // Entra ID sends roles in the "roles" claim
                             var entraRoles = context.Principal?.FindAll("roles").ToList() ?? [];
+                            logger?.LogInformation("Found {Count} 'roles' claims from Entra ID", entraRoles.Count);
+                            
                             foreach (var roleClaim in entraRoles)
                             {
+                                logger?.LogInformation("Adding Entra role to ClaimTypes.Role: {Role}", roleClaim.Value);
                                 if (!identity.HasClaim(ClaimTypes.Role, roleClaim.Value))
                                 {
                                     identity.AddClaim(new Claim(ClaimTypes.Role, roleClaim.Value));
                                 }
                             }
 
-                            // Log roles for debugging
+                            // Log final roles
                             var allRoles = context.Principal?.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList() ?? [];
-                            var logger = context.HttpContext.RequestServices.GetService<ILogger<ClaimsEnrichmentService>>();
-                            logger?.LogInformation("User authenticated via Microsoft. Entra roles: {Roles}", 
+                            logger?.LogInformation("User authenticated via Microsoft. Final roles: {Roles}", 
                                 string.Join(", ", allRoles));
                         }
 
@@ -189,8 +208,15 @@ public static class AuthenticationServiceExtensions
         services.AddSingleton<IAuthenticationProviderService>(
             new AuthenticationProviderService(availableProviders, useMockAuth));
 
-        // Add authorization services (required for UseAuthorization middleware)
-        services.AddAuthorization();
+        // Add authorization services with case-insensitive role policies
+        services.AddAuthorization(options =>
+        {
+            options.AddPolicy("CanAdmin", policy =>
+                policy.RequireAssertion(context =>
+                    context.User.Claims
+                        .Where(c => c.Type == ClaimTypes.Role)
+                        .Any(c => c.Value.Equals("canAdmin", StringComparison.OrdinalIgnoreCase))));
+        });
 
         // Add server-side AuthenticationStateProvider for Blazor SSR
         services.AddHttpContextAccessor();
@@ -205,7 +231,7 @@ public static class AuthenticationServiceExtensions
     }
 
     /// <summary>
-    /// Enriches claims in the authentication ticket during OAuth callback.
+    /// Enriches claims in the authentication ticket during OAuth callback (new login).
     /// </summary>
     private static async Task EnrichTicketAsync(TicketReceivedContext context)
     {
@@ -222,12 +248,13 @@ public static class AuthenticationServiceExtensions
             return;
         }
 
-        var enrichedPrincipal = await enrichmentService.EnrichClaimsAsync(context.Principal);
+        // This is a new login, so register the user
+        var enrichedPrincipal = await enrichmentService.EnrichClaimsAsync(context.Principal, isNewLogin: true);
         context.Principal = enrichedPrincipal;
     }
 
     /// <summary>
-    /// Enriches claims during cookie validation (for subsequent requests).
+    /// Enriches claims during cookie validation (for subsequent requests, NOT a new login).
     /// </summary>
     private static async Task EnrichPrincipalAsync(CookieValidatePrincipalContext context)
     {
@@ -258,7 +285,8 @@ public static class AuthenticationServiceExtensions
 
         try
         {
-            var enrichedPrincipal = await enrichmentService.EnrichClaimsAsync(context.Principal);
+            // This is NOT a new login, just cookie validation - don't increment login count
+            var enrichedPrincipal = await enrichmentService.EnrichClaimsAsync(context.Principal, isNewLogin: false);
             
             // Log the roles after enrichment
             var roles = enrichedPrincipal.Claims
