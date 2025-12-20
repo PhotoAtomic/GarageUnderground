@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using GarageUnderground.Persistence;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 
@@ -33,6 +34,12 @@ public static class AuthenticationEndpoints
 
         // Logout
         group.MapPost("/logout", Logout);
+
+        // Debug: Add role to current user (temporary for testing)
+        group.MapPost("/debug/add-role", AddRoleToCurrentUser);
+
+        // Debug: Get internal roles for current user
+        group.MapGet("/debug/internal-roles", GetInternalRoles);
 
         return endpoints;
     }
@@ -168,7 +175,8 @@ public static class AuthenticationEndpoints
     private static async Task<IResult> MockLogin(
         MockLoginRequest request,
         HttpContext context,
-        IAuthenticationProviderService providerService)
+        IAuthenticationProviderService providerService,
+        IClaimsEnrichmentService claimsEnrichmentService)
     {
         if (!providerService.IsMockAuthenticationActive)
         {
@@ -187,21 +195,24 @@ public static class AuthenticationEndpoints
             Expires = DateTimeOffset.UtcNow.AddDays(30)
         });
 
-        // Sign in with cookie authentication
-        var claims = new[]
+        // Create base claims
+        var email = $"{displayName.ToLowerInvariant().Replace(" ", ".")}@mock.local";
+        var baseClaims = new List<Claim>
         {
             new Claim(ClaimTypes.NameIdentifier, "mock-user-id"),
             new Claim(ClaimTypes.Name, displayName),
-            new Claim(ClaimTypes.Email, $"{displayName.ToLowerInvariant().Replace(" ", ".")}@mock.local"),
+            new Claim(ClaimTypes.Email, email),
             new Claim(ClaimTypes.Role, "User"),
-            new Claim(ClaimTypes.Role, "Admin"),
             new Claim("auth_provider", MockAuthenticationHandler.SchemeName)
         };
 
-        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+        var identity = new ClaimsIdentity(baseClaims, CookieAuthenticationDefaults.AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);
 
-        await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal,
+        // Enrich with internal roles from database
+        var enrichedPrincipal = await claimsEnrichmentService.EnrichClaimsAsync(principal);
+
+        await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, enrichedPrincipal,
             new AuthenticationProperties { IsPersistent = true });
 
         return Results.Ok(new { success = true, redirectUrl = "/dashboard" });
@@ -216,7 +227,85 @@ public static class AuthenticationEndpoints
 
         return Results.Ok(new { success = true, redirectUrl = "/" });
     }
+
+    private static async Task<IResult> AddRoleToCurrentUser(
+        AddRoleRequest request,
+        HttpContext context,
+        IUserRolesRepository userRolesRepository)
+    {
+        if (context.User.Identity?.IsAuthenticated != true)
+        {
+            return Results.Unauthorized();
+        }
+
+        var claims = context.User.Claims;
+        
+        // Get user identifier (prefer email)
+        var email = claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value
+                 ?? claims.FirstOrDefault(c => c.Type == "email")?.Value;
+        
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return Results.BadRequest("Cannot determine user identifier");
+        }
+
+        var name = claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
+        var provider = claims.FirstOrDefault(c => c.Type == "auth_provider")?.Value;
+
+        // Add role to database
+        var userRole = await userRolesRepository.AddRolesAsync(
+            email,
+            "email",
+            [request.Role],
+            name,
+            provider);
+
+        return Results.Ok(new { 
+            success = true, 
+            userIdentifier = email,
+            roles = userRole.Roles,
+            message = "Role added. Log out and log in again to see the changes."
+        });
+    }
+
+    private static async Task<IResult> GetInternalRoles(
+        HttpContext context,
+        IUserRolesRepository userRolesRepository)
+    {
+        if (context.User.Identity?.IsAuthenticated != true)
+        {
+            return Results.Ok(new { authenticated = false, internalRoles = Array.Empty<string>(), currentRoles = Array.Empty<string>() });
+        }
+
+        var claims = context.User.Claims;
+        
+        // Get current roles from claims
+        var currentRoles = claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value).ToArray();
+        
+        // Get user identifier
+        var email = claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value
+                 ?? claims.FirstOrDefault(c => c.Type == "email")?.Value;
+
+        string[] internalRoles = [];
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            var userRole = await userRolesRepository.GetByUserIdentifierAsync(email);
+            internalRoles = userRole?.Roles.ToArray() ?? [];
+        }
+
+        return Results.Ok(new { 
+            authenticated = true,
+            userIdentifier = email,
+            internalRoles,
+            currentRoles
+        });
+    }
 }
+
+/// <summary>
+/// Request to add a role.
+/// </summary>
+public record AddRoleRequest(string Role);
 
 /// <summary>
 /// Response containing current user information.

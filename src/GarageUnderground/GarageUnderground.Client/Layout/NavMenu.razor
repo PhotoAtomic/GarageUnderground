@@ -17,7 +17,16 @@
                         <span class="user-email" title="@user.Email">@user.Email</span>
                     }
                 </div>
-                <span class="user-provider">@user.Provider</span>
+                <div class="user-tags">
+                    <span class="user-provider">@user.Provider</span>
+                    @if (user.Roles?.Length > 0)
+                    {
+                        @foreach (var role in user.Roles)
+                        {
+                            <span class="user-role" title="@role">@role</span>
+                        }
+                    }
+                </div>
             </div>
         }
         <button type="button" class="menu-toggle" @onclick="ToggleMenu" aria-label="Toggle navigation">

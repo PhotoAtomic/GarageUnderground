@@ -20,6 +20,7 @@ public static class PersistenceServiceExtensions
 
         services.AddSingleton<ILiteDatabase>(_ => new LiteDatabase(connectionString));
         services.AddScoped<IInterventiRepository, LiteDbInterventiRepository>();
+        services.AddScoped<IUserRolesRepository, LiteDbUserRolesRepository>();
 
         return services;
     }

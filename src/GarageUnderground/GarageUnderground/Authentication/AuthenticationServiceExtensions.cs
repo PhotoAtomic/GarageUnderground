@@ -1,9 +1,12 @@
 using GarageUnderground.Client.Authentication;
+using GarageUnderground.Persistence;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
-using Microsoft.AspNetCore.Authentication.MicrosoftAccount;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using System.Security.Claims;
 
 namespace GarageUnderground.Authentication;
 
@@ -12,6 +15,11 @@ namespace GarageUnderground.Authentication;
 /// </summary>
 public static class AuthenticationServiceExtensions
 {
+    /// <summary>
+    /// Authentication scheme name for Microsoft Entra ID.
+    /// </summary>
+    public const string MicrosoftScheme = "Microsoft";
+
     /// <summary>
     /// Adds authentication services based on configuration.
     /// </summary>
@@ -25,6 +33,9 @@ public static class AuthenticationServiceExtensions
 
         services.Configure<AuthenticationConfiguration>(
             configuration.GetSection(AuthenticationConfiguration.SectionName));
+
+        // Register claims enrichment service
+        services.AddScoped<IClaimsEnrichmentService, ClaimsEnrichmentService>();
 
         var authBuilder = services.AddAuthentication(options =>
         {
@@ -46,45 +57,82 @@ public static class AuthenticationServiceExtensions
                 context.Response.StatusCode = 401;
                 return Task.CompletedTask;
             };
+            // Enrich claims when validating the cookie principal
+            options.Events.OnValidatePrincipal = async context =>
+            {
+                await EnrichPrincipalAsync(context);
+            };
         });
 
         var availableProviders = new List<AuthProviderInfo>();
 
-        // Configure Microsoft if available
+        // Configure Microsoft Entra ID using OpenID Connect (to get App Roles)
         if (authConfig.Microsoft?.IsConfigured == true)
         {
-            authBuilder.AddMicrosoftAccount(options =>
+            var tenantId = string.IsNullOrWhiteSpace(authConfig.Microsoft.TenantId)
+                ? "common"
+                : authConfig.Microsoft.TenantId;
+
+            authBuilder.AddOpenIdConnect(MicrosoftScheme, "Microsoft", options =>
             {
+                options.Authority = $"https://login.microsoftonline.com/{tenantId}/v2.0";
                 options.ClientId = authConfig.Microsoft.ClientId!;
                 options.ClientSecret = authConfig.Microsoft.ClientSecret!;
+                options.ResponseType = OpenIdConnectResponseType.Code;
                 options.SaveTokens = true;
                 options.CallbackPath = "/signin-microsoft";
+                options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
 
-                // Request additional scopes to get user profile info
+                // Request scopes
+                options.Scope.Clear();
                 options.Scope.Add("openid");
                 options.Scope.Add("profile");
                 options.Scope.Add("email");
 
-                // Set the authorization endpoint based on TenantId
-                // "common" = multi-tenant (default), "consumers" = personal only, 
-                // "organizations" = work/school only, or specific tenant GUID
-                var tenantId = string.IsNullOrWhiteSpace(authConfig.Microsoft.TenantId)
-                    ? "common"
-                    : authConfig.Microsoft.TenantId;
+                // Map claims correctly
+                options.TokenValidationParameters.NameClaimType = "name";
+                options.TokenValidationParameters.RoleClaimType = "roles"; // Entra ID uses "roles" for App Roles
 
-                options.AuthorizationEndpoint = $"https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/authorize";
-                options.TokenEndpoint = $"https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/token";
+                // Get claims from ID token
+                options.GetClaimsFromUserInfoEndpoint = true;
 
-                // After successful authentication, redirect to dashboard
-                options.Events.OnTicketReceived = context =>
+                options.Events = new OpenIdConnectEvents
                 {
-                    context.ReturnUri = "/dashboard";
-                    return Task.CompletedTask;
+                    OnTicketReceived = async context =>
+                    {
+                        context.ReturnUri = "/dashboard";
+
+                        var identity = context.Principal?.Identity as ClaimsIdentity;
+                        if (identity != null)
+                        {
+                            // Add auth_provider claim for tracking
+                            identity.AddClaim(new Claim("auth_provider", MicrosoftScheme));
+
+                            // Map Entra ID "roles" claim to standard ClaimTypes.Role
+                            var entraRoles = context.Principal?.FindAll("roles").ToList() ?? [];
+                            foreach (var roleClaim in entraRoles)
+                            {
+                                if (!identity.HasClaim(ClaimTypes.Role, roleClaim.Value))
+                                {
+                                    identity.AddClaim(new Claim(ClaimTypes.Role, roleClaim.Value));
+                                }
+                            }
+
+                            // Log roles for debugging
+                            var allRoles = context.Principal?.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList() ?? [];
+                            var logger = context.HttpContext.RequestServices.GetService<ILogger<ClaimsEnrichmentService>>();
+                            logger?.LogInformation("User authenticated via Microsoft. Entra roles: {Roles}", 
+                                string.Join(", ", allRoles));
+                        }
+
+                        // Now enrich with internal database roles
+                        await EnrichTicketAsync(context);
+                    }
                 };
             });
 
             availableProviders.Add(new AuthProviderInfo(
-                MicrosoftAccountDefaults.AuthenticationScheme,
+                MicrosoftScheme,
                 "Microsoft",
                 "microsoft-icon"));
         }
@@ -104,11 +152,16 @@ public static class AuthenticationServiceExtensions
                 options.Scope.Add("profile");
                 options.Scope.Add("email");
 
-                // After successful authentication, redirect to dashboard
-                options.Events.OnTicketReceived = context =>
+                // After successful authentication, enrich claims and redirect to dashboard
+                options.Events.OnTicketReceived = async context =>
                 {
                     context.ReturnUri = "/dashboard";
-                    return Task.CompletedTask;
+                    
+                    // Add auth_provider claim
+                    var identity = context.Principal?.Identity as ClaimsIdentity;
+                    identity?.AddClaim(new Claim("auth_provider", "Google"));
+                    
+                    await EnrichTicketAsync(context);
                 };
             });
 
@@ -149,6 +202,81 @@ public static class AuthenticationServiceExtensions
         services.AddScoped<ApiAuthenticationStateProvider, ServerApiAuthenticationStateProvider>();
 
         return services;
+    }
+
+    /// <summary>
+    /// Enriches claims in the authentication ticket during OAuth callback.
+    /// </summary>
+    private static async Task EnrichTicketAsync(TicketReceivedContext context)
+    {
+        if (context.Principal == null)
+        {
+            return;
+        }
+
+        var enrichmentService = context.HttpContext.RequestServices
+            .GetService<IClaimsEnrichmentService>();
+
+        if (enrichmentService == null)
+        {
+            return;
+        }
+
+        var enrichedPrincipal = await enrichmentService.EnrichClaimsAsync(context.Principal);
+        context.Principal = enrichedPrincipal;
+    }
+
+    /// <summary>
+    /// Enriches claims during cookie validation (for subsequent requests).
+    /// </summary>
+    private static async Task EnrichPrincipalAsync(CookieValidatePrincipalContext context)
+    {
+        if (context.Principal == null)
+        {
+            return;
+        }
+
+        // Check if already enriched in this request to avoid repeated DB calls
+        var alreadyEnriched = context.Principal.Claims
+            .Any(c => c.Type == ClaimsEnrichmentService.InternalRoleClaimType);
+
+        if (alreadyEnriched)
+        {
+            return;
+        }
+
+        var logger = context.HttpContext.RequestServices.GetService<ILogger<ClaimsEnrichmentService>>();
+        
+        var enrichmentService = context.HttpContext.RequestServices
+            .GetService<IClaimsEnrichmentService>();
+
+        if (enrichmentService == null)
+        {
+            logger?.LogWarning("ClaimsEnrichmentService not available during cookie validation");
+            return;
+        }
+
+        try
+        {
+            var enrichedPrincipal = await enrichmentService.EnrichClaimsAsync(context.Principal);
+            
+            // Log the roles after enrichment
+            var roles = enrichedPrincipal.Claims
+                .Where(c => c.Type == ClaimTypes.Role)
+                .Select(c => c.Value)
+                .ToArray();
+            
+            logger?.LogInformation("After enrichment, user has {RoleCount} roles: {Roles}", 
+                roles.Length, 
+                string.Join(", ", roles));
+            
+            context.ReplacePrincipal(enrichedPrincipal);
+            context.ShouldRenew = true;
+        }
+        catch (Exception ex)
+        {
+            logger?.LogError(ex, "Error enriching claims during cookie validation");
+        }
     }
 
     /// <summary>
