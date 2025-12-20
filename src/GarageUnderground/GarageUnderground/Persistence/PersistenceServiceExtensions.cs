@@ -16,7 +16,10 @@ public static class PersistenceServiceExtensions
     public static IServiceCollection AddPersistence(this IServiceCollection services, IConfiguration configuration)
     {
         var connectionString = configuration.GetValue<string>("LiteDb:ConnectionString") 
-            ?? "Filename=garageunderground.db;Connection=shared";
+            ?? "Filename=data/garageunderground.db;Connection=shared";
+
+        // Ensure the directory exists
+        EnsureDatabaseDirectoryExists(connectionString);
 
         services.AddSingleton<ILiteDatabase>(_ => new LiteDatabase(connectionString));
         services.AddScoped<IInterventiRepository, LiteDbInterventiRepository>();
@@ -24,5 +27,28 @@ public static class PersistenceServiceExtensions
         services.AddScoped<IUserRegistrationRepository, LiteDbUserRegistrationRepository>();
 
         return services;
+    }
+
+    /// <summary>
+    /// Ensures the directory for the database file exists.
+    /// </summary>
+    private static void EnsureDatabaseDirectoryExists(string connectionString)
+    {
+        // Parse the filename from the connection string
+        var parts = connectionString.Split(';');
+        foreach (var part in parts)
+        {
+            var trimmed = part.Trim();
+            if (trimmed.StartsWith("Filename=", StringComparison.OrdinalIgnoreCase))
+            {
+                var filename = trimmed["Filename=".Length..];
+                var directory = Path.GetDirectoryName(filename);
+                if (!string.IsNullOrEmpty(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+                break;
+            }
+        }
     }
 }
