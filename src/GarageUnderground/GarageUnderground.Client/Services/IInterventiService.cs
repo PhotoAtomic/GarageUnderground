@@ -15,6 +15,13 @@ public interface IInterventiService
     Task<IReadOnlyList<InterventoDto>> GetByTargaAsync(string targa);
 
     /// <summary>
+    /// Ottiene un intervento per ID.
+    /// </summary>
+    /// <param name="id">ID dell'intervento.</param>
+    /// <returns>L'intervento se trovato, null altrimenti.</returns>
+    Task<InterventoDto?> GetByIdAsync(Guid id);
+
+    /// <summary>
     /// Crea un nuovo intervento.
     /// </summary>
     /// <param name="intervento">Dati del nuovo intervento.</param>

@@ -60,6 +60,11 @@ public static class AuthenticationServiceExtensions
                 options.SaveTokens = true;
                 options.CallbackPath = "/signin-microsoft";
 
+                // Request additional scopes to get user profile info
+                options.Scope.Add("openid");
+                options.Scope.Add("profile");
+                options.Scope.Add("email");
+
                 // Set the authorization endpoint based on TenantId
                 // "common" = multi-tenant (default), "consumers" = personal only, 
                 // "organizations" = work/school only, or specific tenant GUID
@@ -93,6 +98,11 @@ public static class AuthenticationServiceExtensions
                 options.ClientSecret = authConfig.Google.ClientSecret!;
                 options.SaveTokens = true;
                 options.CallbackPath = "/signin-google";
+
+                // Request scopes to get user profile info
+                options.Scope.Add("openid");
+                options.Scope.Add("profile");
+                options.Scope.Add("email");
 
                 // After successful authentication, redirect to dashboard
                 options.Events.OnTicketReceived = context =>

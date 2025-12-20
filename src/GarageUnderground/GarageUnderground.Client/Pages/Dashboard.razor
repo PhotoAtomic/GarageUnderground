@@ -19,17 +19,6 @@
 else if (user?.IsAuthenticated == true)
 {
     <section class="dashboard">
-        <header class="dashboard-header">
-            <h1>Benvenuto, @user.Name!</h1>
-            <p class="user-info">
-                <span class="provider-badge">@user.Provider</span>
-                @if (!string.IsNullOrEmpty(user.Email))
-                {
-                    <span class="email">@user.Email</span>
-                }
-            </p>
-        </header>
-
         <div class="search-section">
             <div class="search-container">
                 <input type="text" 
@@ -45,7 +34,11 @@ else if (user?.IsAuthenticated == true)
                     }
                     else
                     {
-                        <span>?? Cerca</span>
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"/>
+                            <path d="m21 21-4.35-4.35"/>
+                        </svg>
+                        <span>Cerca</span>
                     }
                 </button>
             </div>
@@ -73,9 +66,32 @@ else if (user?.IsAuthenticated == true)
                             <div class="intervento-card @(intervento.Pagato ? "pagato" : "non-pagato")">
                                 <div class="intervento-header">
                                     <span class="intervento-data">@intervento.Data.ToString("dd/MM/yyyy")</span>
-                                    <span class="intervento-stato @(intervento.Pagato ? "stato-pagato" : "stato-non-pagato")">
-                                        @(intervento.Pagato ? "? Pagato" : "? Da pagare")
-                                    </span>
+                                    <div class="intervento-header-right">
+                                        <span class="intervento-stato @(intervento.Pagato ? "stato-pagato" : "stato-non-pagato")">
+                                            @if (intervento.Pagato)
+                                            {
+                                                <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                                    <polyline points="20 6 9 17 4 12"/>
+                                                </svg>
+                                                <span>Pagato</span>
+                                            }
+                                            else
+                                            {
+                                                <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                                    <circle cx="12" cy="12" r="10"/>
+                                                    <line x1="12" y1="8" x2="12" y2="12"/>
+                                                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                                                </svg>
+                                                <span>Da pagare</span>
+                                            }
+                                        </span>
+                                        <button class="btn-edit" @onclick="() => NavigateToEditIntervento(intervento.Id)" title="Modifica intervento">
+                                            <svg class="icon-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                                            </svg>
+                                        </button>
+                                    </div>
                                 </div>
                                 <p class="intervento-descrizione">@intervento.Descrizione</p>
                                 <div class="intervento-footer">
@@ -97,6 +113,9 @@ else if (user?.IsAuthenticated == true)
 }
 
 @code {
+    [SupplyParameterFromQuery]
+    public string? Targa { get; set; }
+
     private UserInfo? user;
     private bool isLoading = true;
     private bool isSearching = false;
@@ -115,7 +134,17 @@ else if (user?.IsAuthenticated == true)
             return;
         }
 
-        isLoading = false;
+        // Se c'è una targa nel query parameter, esegui automaticamente la ricerca
+        if (!string.IsNullOrWhiteSpace(Targa))
+        {
+            searchTarga = Targa.Trim().ToUpperInvariant();
+            isLoading = false;
+            await SearchInterventi();
+        }
+        else
+        {
+            isLoading = false;
+        }
     }
 
     private async Task HandleSearchKeyDown(KeyboardEventArgs e)
@@ -151,6 +180,11 @@ else if (user?.IsAuthenticated == true)
     private void NavigateToNuovoIntervento()
     {
         Navigation.NavigateTo($"/intervento/nuovo?targa={Uri.EscapeDataString(currentTarga)}");
+    }
+
+    private void NavigateToEditIntervento(Guid interventoId)
+    {
+        Navigation.NavigateTo($"/intervento/modifica/{interventoId}");
     }
 
     private async Task HandleLogout()
@@ -197,40 +231,6 @@ else if (user?.IsAuthenticated == true)
         gap: 1.5rem;
         min-height: calc(100vh - var(--header-height) - 4rem);
         padding: 1rem;
-    }
-
-    .dashboard-header {
-        text-align: center;
-    }
-
-    .dashboard-header h1 {
-        font-size: clamp(1.5rem, 4vw, 2rem);
-        font-weight: 600;
-        margin: 0 0 0.5rem;
-        color: var(--color-text);
-    }
-
-    .user-info {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 0.5rem;
-        margin: 0;
-        color: var(--color-text-muted);
-        font-size: 0.9rem;
-    }
-
-    .provider-badge {
-        background-color: var(--color-primary);
-        color: var(--color-text);
-        padding: 0.25rem 0.75rem;
-        border-radius: 1rem;
-        font-size: 0.8rem;
-        text-transform: capitalize;
-    }
-
-    .email {
-        color: var(--color-text-muted);
     }
 
     /* Search Section - Oversized for big hands */
@@ -371,6 +371,12 @@ else if (user?.IsAuthenticated == true)
         gap: 0.5rem;
     }
 
+    .intervento-header-right {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
     .intervento-data {
         font-size: 1.1rem;
         font-weight: 600;
@@ -382,6 +388,9 @@ else if (user?.IsAuthenticated == true)
         border-radius: 2rem;
         font-size: 0.95rem;
         font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
     }
 
     .stato-pagato {
@@ -447,5 +456,47 @@ else if (user?.IsAuthenticated == true)
     .btn-logout:hover {
         background-color: var(--color-accent);
         color: white;
+    }
+
+    /* SVG Icons */
+    .icon {
+        width: 1.5rem;
+        height: 1.5rem;
+        flex-shrink: 0;
+    }
+
+    .icon-small {
+        width: 1rem;
+        height: 1rem;
+        flex-shrink: 0;
+    }
+
+    .btn-edit {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 3rem;
+        height: 3rem;
+        background-color: var(--color-primary);
+        border: 2px solid var(--color-primary);
+        border-radius: 0.5rem;
+        cursor: pointer;
+        transition: background-color 0.2s, transform 0.1s;
+    }
+
+    .btn-edit:hover {
+        background-color: var(--color-accent);
+        border-color: var(--color-accent);
+    }
+
+    .btn-edit:active {
+        transform: scale(0.95);
+    }
+
+    .icon-edit {
+        width: 1.5rem;
+        height: 1.5rem;
+        flex-shrink: 0;
+        stroke: var(--color-text);
     }
 </style>

@@ -34,6 +34,18 @@ public sealed class InterventiService : IInterventiService
         }
     }
 
+    public async Task<InterventoDto?> GetByIdAsync(Guid id)
+    {
+        try
+        {
+            return await httpClient.GetFromJsonAsync<InterventoDto>($"/api/interventi/{id}");
+        }
+        catch (HttpRequestException)
+        {
+            return null;
+        }
+    }
+
     public async Task<InterventoDto?> CreateAsync(NuovoInterventoDto intervento)
     {
         ArgumentNullException.ThrowIfNull(intervento);

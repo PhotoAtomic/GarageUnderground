@@ -1,15 +1,33 @@
+@using GarageUnderground.Client.Authentication
 @using Microsoft.AspNetCore.Components.Authorization
-@inject AuthenticationStateProvider AuthStateProvider
+@implements IDisposable
+@inject ApiAuthenticationStateProvider AuthStateProvider
 
 <header class="app-header">
     <a class="app-title" href="">GarageUnderground</a>
-    <button type="button" class="menu-toggle" @onclick="ToggleMenu" aria-label="Toggle navigation">
-        <span class="menu-icon"></span>
-    </button>
+    
+    <div class="header-right">
+        @if (user?.IsAuthenticated == true)
+        {
+            <div class="user-info">
+                <div class="user-details">
+                    <span class="user-name" title="@GetDisplayName()">@GetDisplayName()</span>
+                    @if (!string.IsNullOrEmpty(user.Email) && user.Email != user.Name)
+                    {
+                        <span class="user-email" title="@user.Email">@user.Email</span>
+                    }
+                </div>
+                <span class="user-provider">@user.Provider</span>
+            </div>
+        }
+        <button type="button" class="menu-toggle" @onclick="ToggleMenu" aria-label="Toggle navigation">
+            <span class="menu-icon"></span>
+        </button>
+    </div>
 </header>
 
 <nav class="app-nav @(menuOpen ? "open" : "")" @onclick="CloseMenu">
-    @if (isAuthenticated)
+    @if (user?.IsAuthenticated == true)
     {
         <NavLink class="nav-link" href="dashboard" Match="NavLinkMatch.All">
             <span class="nav-icon dashboard-icon" aria-hidden="true"></span>
@@ -27,12 +45,42 @@
 
 @code {
     private bool menuOpen;
-    private bool isAuthenticated;
+    private UserInfo? user;
 
     protected override async Task OnInitializedAsync()
     {
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        isAuthenticated = authState.User.Identity?.IsAuthenticated == true;
+        // Subscribe to authentication state changes
+        AuthStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
+        
+        await RefreshUserAsync();
+    }
+
+    private async void OnAuthenticationStateChanged(Task<AuthenticationState> task)
+    {
+        await RefreshUserAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RefreshUserAsync()
+    {
+        user = await AuthStateProvider.GetCurrentUserAsync(forceRefresh: true);
+    }
+
+    private string GetDisplayName()
+    {
+        if (!string.IsNullOrEmpty(user?.Name))
+        {
+            return user.Name;
+        }
+        
+        // Fallback to email username if no name
+        if (!string.IsNullOrEmpty(user?.Email))
+        {
+            var atIndex = user.Email.IndexOf('@');
+            return atIndex > 0 ? user.Email[..atIndex] : user.Email;
+        }
+        
+        return "Utente";
     }
 
     private void ToggleMenu()
@@ -43,5 +91,10 @@
     private void CloseMenu()
     {
         menuOpen = false;
+    }
+
+    public void Dispose()
+    {
+        AuthStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
     }
 }

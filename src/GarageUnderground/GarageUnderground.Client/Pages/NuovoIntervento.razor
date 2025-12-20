@@ -1,4 +1,5 @@
 @page "/intervento/nuovo"
+@page "/intervento/modifica/{Id:guid}"
 @using GarageUnderground.Client.Authentication
 @using GarageUnderground.Client.Models
 @using GarageUnderground.Client.Services
@@ -8,7 +9,7 @@
 @inject IInterventiService InterventiService
 @rendermode InteractiveWebAssembly
 
-<PageTitle>Nuovo Intervento - GarageUnderground</PageTitle>
+<PageTitle>@(IsEditMode ? "Modifica" : "Nuovo") Intervento - GarageUnderground</PageTitle>
 
 @if (isLoading)
 {
@@ -21,18 +22,31 @@ else if (user?.IsAuthenticated == true)
     <section class="nuovo-intervento-page">
         <header class="page-header">
             <button class="btn btn-back" @onclick="NavigateBack">
-                ? Indietro
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5"/>
+                    <polyline points="12 19 5 12 12 5"/>
+                </svg>
+                <span>Indietro</span>
             </button>
-            <h1>Nuovo Intervento</h1>
+            <h1>@(IsEditMode ? "Modifica" : "Nuovo") Intervento</h1>
         </header>
 
         <div class="form-container">
             <div class="header-info">
                 <div class="info-row">
                     <label>Data</label>
-                    <input type="date" 
-                           class="form-input date-input"
-                           @bind="dataIntervento" />
+                    <div class="date-input-wrapper">
+                        <input type="date" 
+                               id="dataIntervento"
+                               class="form-input date-input"
+                               @bind="dataIntervento" />
+                        <svg class="calendar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" onclick="document.getElementById('dataIntervento').showPicker()">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                            <line x1="16" y1="2" x2="16" y2="6"/>
+                            <line x1="8" y1="2" x2="8" y2="6"/>
+                            <line x1="3" y1="10" x2="21" y2="10"/>
+                        </svg>
+                    </div>
                 </div>
                 <div class="info-row">
                     <label>Targa</label>
@@ -65,7 +79,9 @@ else if (user?.IsAuthenticated == true)
                     <span class="checkbox-box @(pagato ? "checked" : "")">
                         @if (pagato)
                         {
-                            <span class="checkmark">?</span>
+                            <svg class="checkmark-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                <polyline points="20 6 9 17 4 12"/>
+                            </svg>
                         }
                     </span>
                     <span class="checkbox-text">Pagato</span>
@@ -80,10 +96,22 @@ else if (user?.IsAuthenticated == true)
             }
 
             <div class="form-actions">
-                <button class="btn btn-cancel" @onclick="NavigateBack" disabled="@isSaving">
+                @if (IsEditMode)
+                {
+                    <button class="btn btn-delete" @onclick="ShowDeleteConfirmation" disabled="@(isSaving || isDeleting)">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"/>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                            <line x1="10" y1="11" x2="10" y2="17"/>
+                            <line x1="14" y1="11" x2="14" y2="17"/>
+                        </svg>
+                        <span>Elimina</span>
+                    </button>
+                }
+                <button class="btn btn-cancel" @onclick="NavigateBack" disabled="@(isSaving || isDeleting)">
                     Annulla
                 </button>
-                <button class="btn btn-save" @onclick="SaveIntervento" disabled="@isSaving">
+                <button class="btn btn-save" @onclick="SaveIntervento" disabled="@(isSaving || isDeleting)">
                     @if (isSaving)
                     {
                         <span class="btn-spinner"></span>
@@ -91,21 +119,69 @@ else if (user?.IsAuthenticated == true)
                     }
                     else
                     {
-                        <span>?? Salva Intervento</span>
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                            <polyline points="17 21 17 13 7 13 7 21"/>
+                            <polyline points="7 3 7 8 15 8"/>
+                        </svg>
+                        <span>@(IsEditMode ? "Salva Modifiche" : "Salva Intervento")</span>
                     }
                 </button>
             </div>
         </div>
     </section>
+
+    @if (showDeleteConfirmation)
+    {
+        <div class="modal-overlay" @onclick="HideDeleteConfirmation">
+            <div class="modal-content" @onclick:stopPropagation="true">
+                <div class="modal-header">
+                    <svg class="modal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="8" x2="12" y2="12"/>
+                        <line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                    <h2>Conferma Eliminazione</h2>
+                </div>
+                <p class="modal-message">
+                    Sei sicuro di voler eliminare questo intervento?<br/>
+                    <strong>Questa azione non può essere annullata.</strong>
+                </p>
+                <div class="modal-actions">
+                    <button class="btn btn-cancel-modal" @onclick="HideDeleteConfirmation" disabled="@isDeleting">
+                        Annulla
+                    </button>
+                    <button class="btn btn-confirm-delete" @onclick="DeleteIntervento" disabled="@isDeleting">
+                        @if (isDeleting)
+                        {
+                            <span class="btn-spinner"></span>
+                            <span>Eliminazione...</span>
+                        }
+                        else
+                        {
+                            <span>Elimina Intervento</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
 }
 
 @code {
+    [Parameter]
+    public Guid? Id { get; set; }
+
     [SupplyParameterFromQuery]
     public string? Targa { get; set; }
+
+    private bool IsEditMode => Id.HasValue;
 
     private UserInfo? user;
     private bool isLoading = true;
     private bool isSaving = false;
+    private bool isDeleting = false;
+    private bool showDeleteConfirmation = false;
     private string targa = string.Empty;
     private DateTime dataIntervento = DateTime.Today;
     private string descrizione = string.Empty;
@@ -123,15 +199,39 @@ else if (user?.IsAuthenticated == true)
             return;
         }
 
-        targa = (Targa ?? string.Empty).Trim().ToUpperInvariant();
+        if (IsEditMode)
+        {
+            await LoadInterventoAsync();
+        }
+        else
+        {
+            targa = (Targa ?? string.Empty).Trim().ToUpperInvariant();
+            
+            if (string.IsNullOrEmpty(targa))
+            {
+                Navigation.NavigateTo("/dashboard");
+                return;
+            }
+        }
+
+        isLoading = false;
+    }
+
+    private async Task LoadInterventoAsync()
+    {
+        var intervento = await InterventiService.GetByIdAsync(Id!.Value);
         
-        if (string.IsNullOrEmpty(targa))
+        if (intervento is null)
         {
             Navigation.NavigateTo("/dashboard");
             return;
         }
 
-        isLoading = false;
+        targa = intervento.Targa;
+        dataIntervento = intervento.Data.ToDateTime(TimeOnly.MinValue);
+        descrizione = intervento.Descrizione;
+        costo = intervento.Costo;
+        pagato = intervento.Pagato;
     }
 
     private void TogglePagato()
@@ -159,7 +259,7 @@ else if (user?.IsAuthenticated == true)
 
         try
         {
-            var nuovoIntervento = new NuovoInterventoDto
+            var interventoDto = new NuovoInterventoDto
             {
                 Targa = targa,
                 Data = DateOnly.FromDateTime(dataIntervento),
@@ -168,7 +268,16 @@ else if (user?.IsAuthenticated == true)
                 Pagato = pagato
             };
 
-            var result = await InterventiService.CreateAsync(nuovoIntervento);
+            InterventoDto? result;
+            
+            if (IsEditMode)
+            {
+                result = await InterventiService.UpdateAsync(Id!.Value, interventoDto);
+            }
+            else
+            {
+                result = await InterventiService.CreateAsync(interventoDto);
+            }
 
             if (result is not null)
             {
@@ -186,6 +295,46 @@ else if (user?.IsAuthenticated == true)
         finally
         {
             isSaving = false;
+        }
+    }
+
+    private void ShowDeleteConfirmation()
+    {
+        showDeleteConfirmation = true;
+    }
+
+    private void HideDeleteConfirmation()
+    {
+        showDeleteConfirmation = false;
+    }
+
+    private async Task DeleteIntervento()
+    {
+        isDeleting = true;
+        errorMessage = null;
+
+        try
+        {
+            var success = await InterventiService.DeleteAsync(Id!.Value);
+
+            if (success)
+            {
+                Navigation.NavigateTo($"/dashboard?targa={Uri.EscapeDataString(targa)}");
+            }
+            else
+            {
+                showDeleteConfirmation = false;
+                errorMessage = "Errore durante l'eliminazione. Riprova.";
+            }
+        }
+        catch (Exception)
+        {
+            showDeleteConfirmation = false;
+            errorMessage = "Errore durante l'eliminazione. Riprova.";
+        }
+        finally
+        {
+            isDeleting = false;
         }
     }
 
@@ -249,6 +398,9 @@ else if (user?.IsAuthenticated == true)
     }
 
     .btn-back {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
         padding: 1rem 1.5rem;
         font-size: 1.1rem;
         font-weight: 500;
@@ -298,14 +450,41 @@ else if (user?.IsAuthenticated == true)
         color: var(--color-text-muted);
     }
 
+    .date-input-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
     .date-input {
-        padding: 1rem 1.25rem;
+        padding: 1rem 3.5rem 1rem 1.25rem;
         font-size: 1.25rem;
         border: 2px solid var(--color-primary);
         border-radius: 0.75rem;
         background-color: var(--color-bg);
         color: var(--color-text);
         min-height: 60px;
+        color-scheme: dark;
+        width: 100%;
+    }
+
+    /* Nasconde l'icona nativa del date picker */
+    .date-input::-webkit-calendar-picker-indicator {
+        opacity: 0;
+        position: absolute;
+        right: 0;
+        width: 3rem;
+        height: 100%;
+        cursor: pointer;
+    }
+
+    .calendar-icon {
+        position: absolute;
+        right: 1rem;
+        width: 1.75rem;
+        height: 1.75rem;
+        stroke: var(--color-text);
+        pointer-events: none;
     }
 
     .date-input:focus {
@@ -394,10 +573,10 @@ else if (user?.IsAuthenticated == true)
         border-color: #26b050;
     }
 
-    .checkmark {
-        font-size: 1.5rem;
-        color: white;
-        font-weight: bold;
+    .checkmark-icon {
+        width: 1.5rem;
+        height: 1.5rem;
+        stroke: white;
     }
 
     .checkbox-text {
@@ -449,6 +628,18 @@ else if (user?.IsAuthenticated == true)
         cursor: not-allowed;
     }
 
+    .btn-delete {
+        background-color: transparent;
+        color: var(--color-accent);
+        border: 2px solid var(--color-accent);
+        flex: 0 0 auto;
+    }
+
+    .btn-delete:hover:not(:disabled) {
+        background-color: var(--color-accent);
+        color: white;
+    }
+
     .btn-cancel {
         background-color: var(--color-bg);
         color: var(--color-text);
@@ -466,5 +657,109 @@ else if (user?.IsAuthenticated == true)
 
     .btn-save:hover:not(:disabled) {
         background-color: #1e9040;
+    }
+
+    .icon {
+        width: 1.5rem;
+        height: 1.5rem;
+        flex-shrink: 0;
+    }
+
+    /* Modal Styles */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        z-index: 1000;
+        animation: fadeIn 0.2s ease-out;
+    }
+
+    @@keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    .modal-content {
+        background-color: var(--color-surface);
+        border-radius: 1rem;
+        padding: 2rem;
+        max-width: 500px;
+        width: 100%;
+        animation: slideUp 0.2s ease-out;
+    }
+
+    @@keyframes slideUp {
+        from { 
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to { 
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .modal-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .modal-icon {
+        width: 3rem;
+        height: 3rem;
+        stroke: var(--color-accent);
+        flex-shrink: 0;
+    }
+
+    .modal-header h2 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--color-text);
+        margin: 0;
+    }
+
+    .modal-message {
+        font-size: 1.1rem;
+        color: var(--color-text);
+        line-height: 1.6;
+        margin: 0 0 2rem;
+    }
+
+    .modal-message strong {
+        color: var(--color-accent);
+    }
+
+    .modal-actions {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .btn-cancel-modal {
+        background-color: var(--color-bg);
+        color: var(--color-text);
+        border: 2px solid var(--color-primary);
+    }
+
+    .btn-cancel-modal:hover:not(:disabled) {
+        background-color: var(--color-primary);
+    }
+
+    .btn-confirm-delete {
+        background-color: var(--color-accent);
+        color: white;
+    }
+
+    .btn-confirm-delete:hover:not(:disabled) {
+        background-color: #d13550;
     }
 </style>

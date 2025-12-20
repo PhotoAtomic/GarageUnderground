@@ -19,6 +19,9 @@ public static class AuthenticationEndpoints
         // Get current user info
         group.MapGet("/user", GetCurrentUser);
 
+        // Debug: Get all claims (useful to see what Microsoft returns)
+        group.MapGet("/claims", GetAllClaims);
+
         // Get available providers
         group.MapGet("/providers", GetProviders);
 
@@ -34,6 +37,22 @@ public static class AuthenticationEndpoints
         return endpoints;
     }
 
+    private static IResult GetAllClaims(HttpContext context)
+    {
+        if (context.User.Identity?.IsAuthenticated != true)
+        {
+            return Results.Ok(new { authenticated = false, claims = Array.Empty<object>() });
+        }
+
+        var claims = context.User.Claims.Select(c => new 
+        { 
+            type = c.Type, 
+            value = c.Value 
+        }).ToArray();
+
+        return Results.Ok(new { authenticated = true, claims });
+    }
+
     private static IResult GetCurrentUser(HttpContext context)
     {
         if (context.User.Identity?.IsAuthenticated != true)
@@ -42,14 +61,77 @@ public static class AuthenticationEndpoints
         }
 
         var claims = context.User.Claims;
-        var name = claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
-        var email = claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value;
-        var provider = claims.FirstOrDefault(c => c.Type == "auth_provider")?.Value
-                    ?? claims.FirstOrDefault(c => c.Type == "http://schemas.microsoft.com/identity/claims/identityprovider")?.Value
-                    ?? "Unknown";
+        
+        // Name: prefer givenname (first name) over display name
+        // Google uses: ClaimTypes.GivenName, "given_name"
+        // Microsoft uses: ClaimTypes.GivenName
+        var name = claims.FirstOrDefault(c => c.Type == ClaimTypes.GivenName)?.Value
+                ?? claims.FirstOrDefault(c => c.Type == "given_name")?.Value
+                ?? claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname")?.Value
+                ?? claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value
+                ?? claims.FirstOrDefault(c => c.Type == "name")?.Value;
+        
+        // Email: try various claim types
+        // Google uses: ClaimTypes.Email, "email"
+        // Microsoft uses: ClaimTypes.Email, "preferred_username"
+        var email = claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value
+                 ?? claims.FirstOrDefault(c => c.Type == "email")?.Value
+                 ?? claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress")?.Value
+                 ?? claims.FirstOrDefault(c => c.Type == "preferred_username")?.Value;
+        
+        // Provider: determine based on authentication type or claims
+        var provider = DetermineProvider(context.User);
+        
         var roles = claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value).ToArray();
 
         return Results.Ok(new UserInfo(true, name, email, provider, roles));
+    }
+
+    private static string DetermineProvider(ClaimsPrincipal user)
+    {
+        var claims = user.Claims;
+        
+        // Check for explicit auth_provider claim (set by mock login)
+        var explicitProvider = claims.FirstOrDefault(c => c.Type == "auth_provider")?.Value;
+        if (!string.IsNullOrEmpty(explicitProvider))
+        {
+            return explicitProvider;
+        }
+        
+        // Check for Microsoft identity provider claim
+        var msIdentityProvider = claims.FirstOrDefault(c => 
+            c.Type == "http://schemas.microsoft.com/identity/claims/identityprovider")?.Value;
+        if (!string.IsNullOrEmpty(msIdentityProvider))
+        {
+            return "Microsoft";
+        }
+        
+        // Check issuer claim for Microsoft
+        var issuer = claims.FirstOrDefault(c => c.Type == "iss")?.Value;
+        if (issuer?.Contains("login.microsoftonline.com") == true ||
+            issuer?.Contains("sts.windows.net") == true)
+        {
+            return "Microsoft";
+        }
+        
+        // Check for Google
+        if (issuer?.Contains("accounts.google.com") == true)
+        {
+            return "Google";
+        }
+        
+        // Check authentication type
+        var authType = user.Identity?.AuthenticationType;
+        if (authType?.Contains("Microsoft", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return "Microsoft";
+        }
+        if (authType?.Contains("Google", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return "Google";
+        }
+        
+        return authType ?? "Unknown";
     }
 
     private static IResult GetProviders(IAuthenticationProviderService providerService)

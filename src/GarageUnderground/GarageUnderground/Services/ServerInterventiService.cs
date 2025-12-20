@@ -29,6 +29,12 @@ public sealed class ServerInterventiService : IInterventiService
         return interventi.Select(ToDto).ToList();
     }
 
+    public async Task<InterventoDto?> GetByIdAsync(Guid id)
+    {
+        var intervento = await repository.GetByIdAsync(id);
+        return intervento is null ? null : ToDto(intervento);
+    }
+
     public async Task<InterventoDto?> CreateAsync(NuovoInterventoDto dto)
     {
         ArgumentNullException.ThrowIfNull(dto);
