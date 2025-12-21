@@ -1,8 +1,9 @@
 @using GarageUnderground.Client.Authentication
 @using Microsoft.AspNetCore.Components.Authorization
-@implements IDisposable
+@implements IAsyncDisposable
 @inject ApiAuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
 
 <header class="app-header">
     <div class="header-left">
@@ -25,6 +26,14 @@
                         <span class="nav-icon admin-icon" aria-hidden="true"></span>
                         Gestione Ruoli
                     </NavLink>
+                }
+                
+                @if (canInstall)
+                {
+                    <button class="nav-link install-link" @onclick="HandleInstall">
+                        <span class="nav-icon install-icon" aria-hidden="true"></span>
+                        Installa
+                    </button>
                 }
                 
                 <button class="nav-link logout-link" @onclick="HandleLogout">
@@ -90,6 +99,14 @@
             </NavLink>
         }
         
+        @if (canInstall)
+        {
+            <button class="nav-link install-link" @onclick="HandleInstall" @onclick:stopPropagation="true">
+                <span class="nav-icon install-icon" aria-hidden="true"></span>
+                Installa
+            </button>
+        }
+        
         <button class="nav-link logout-link" @onclick="HandleLogout" @onclick:stopPropagation="true">
             <span class="nav-icon logout-icon" aria-hidden="true"></span>
             Esci
@@ -107,13 +124,44 @@
 @code {
     private bool menuOpen;
     private UserInfo? user;
+    private bool canInstall;
+    private DotNetObjectReference<NavMenu>? dotNetRef;
 
     protected override async Task OnInitializedAsync()
     {
-        // Subscribe to authentication state changes
         AuthStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
         
         await RefreshUserAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            dotNetRef = DotNetObjectReference.Create(this);
+            try
+            {
+                // Register this component instance with the JS PWA install handler
+                await JSRuntime.InvokeVoidAsync("pwaInstall.setDotNetHelper", dotNetRef);
+                
+                // Also check current state immediately
+                var isInstalled = await JSRuntime.InvokeAsync<bool>("pwaInstall.isInstalled");
+                var canInstallNow = await JSRuntime.InvokeAsync<bool>("pwaInstall.canInstall");
+                canInstall = canInstallNow && !isInstalled;
+                StateHasChanged();
+            }
+            catch
+            {
+                canInstall = false;
+            }
+        }
+    }
+
+    [JSInvokable]
+    public void OnPwaInstallStateChanged(bool canInstallNow, bool isInstalled)
+    {
+        canInstall = canInstallNow && !isInstalled;
+        InvokeAsync(StateHasChanged);
     }
 
     private async void OnAuthenticationStateChanged(Task<AuthenticationState> task)
@@ -139,7 +187,6 @@
             return user.Name;
         }
         
-        // Fallback to email username if no name
         if (!string.IsNullOrEmpty(user?.Email))
         {
             var atIndex = user.Email.IndexOf('@');
@@ -159,14 +206,42 @@
         menuOpen = false;
     }
 
+    private async Task HandleInstall()
+    {
+        try
+        {
+            var installed = await JSRuntime.InvokeAsync<bool>("pwaInstall.promptInstall");
+            if (installed)
+            {
+                canInstall = false;
+                StateHasChanged();
+            }
+        }
+        catch
+        {
+            // Ignore JS interop errors
+        }
+    }
+
     private async Task HandleLogout()
     {
         await AuthStateProvider.LogoutAsync();
         Navigation.NavigateTo("/", forceLoad: true);
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         AuthStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
+        
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("pwaInstall.disposeDotNetHelper");
+        }
+        catch
+        {
+            // Ignore errors during disposal
+        }
+        
+        dotNetRef?.Dispose();
     }
 }

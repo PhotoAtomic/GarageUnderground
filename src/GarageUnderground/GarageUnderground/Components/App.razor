@@ -1,5 +1,28 @@
-﻿<!DOCTYPE html>
-<html lang="en">
+﻿@inject IHttpContextAccessor HttpContextAccessor
+@inject IConfiguration Configuration
+
+@{
+    // Check for override first, then fall back to automatic detection
+    var baseUrlOverride = Configuration["BaseUrlOverride"];
+    string baseUrl;
+    
+    if (!string.IsNullOrWhiteSpace(baseUrlOverride))
+    {
+        // Use configured override (remove trailing slash if present)
+        baseUrl = baseUrlOverride.TrimEnd('/');
+    }
+    else
+    {
+        // Automatic detection from HttpContext
+        var request = HttpContextAccessor.HttpContext?.Request;
+        baseUrl = request != null 
+            ? $"{request.Scheme}://{request.Host}" 
+            : "";
+    }
+}
+
+<!DOCTYPE html>
+<html lang="it">
 
 <head>
     <meta charset="utf-8" />
@@ -7,19 +30,55 @@
     <meta name="theme-color" content="#1a1a2e" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    
+    <!-- SEO & Description -->
+    <meta name="description" content="GarageUnderground - Gestione interventi e manutenzioni" />
+    <meta name="author" content="GarageUnderground" />
+    
+    <!-- Open Graph / Facebook / WhatsApp / LinkedIn -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="@baseUrl/" />
+    <meta property="og:title" content="GarageUnderground" />
+    <meta property="og:description" content="GarageUnderground - Gestione interventi e manutenzioni" />
+    <meta property="og:image" content="@baseUrl/icon-512.png" />
+    <meta property="og:image:width" content="512" />
+    <meta property="og:image:height" content="512" />
+    <meta property="og:locale" content="it_IT" />
+    <meta property="og:site_name" content="GarageUnderground" />
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="GarageUnderground" />
+    <meta name="twitter:description" content="GarageUnderground - Gestione interventi e manutenzioni" />
+    <meta name="twitter:image" content="@baseUrl/icon-512.png" />
+    
     <base href="/" />
     <ResourcePreloader />
     <link rel="stylesheet" href="@Assets["app.css"]" />
     <link rel="stylesheet" href="@Assets["GarageUnderground.styles.css"]" />
     <ImportMap />
     <link rel="icon" type="image/png" href="favicon.png" />
+    <link rel="apple-touch-icon" href="icon-192.png" />
     <link rel="manifest" href="manifest.json" />
     <HeadOutlet />
 </head>
 
 <body>
     <Routes />
+    <script src="js/pwa-install.js"></script>
     <script src="@Assets["_framework/blazor.web.js"]"></script>
+    <script>
+        // Register service worker for PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/service-worker.js')
+                .then(registration => {
+                    console.log('Service Worker registered with scope:', registration.scope);
+                })
+                .catch(error => {
+                    console.error('Service Worker registration failed:', error);
+                });
+        }
+    </script>
 </body>
 
 </html>

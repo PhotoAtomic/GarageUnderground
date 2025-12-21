@@ -4,6 +4,7 @@ using GarageUnderground.Client.Services;
 using GarageUnderground.Components;
 using GarageUnderground.Persistence;
 using GarageUnderground.Services;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,6 +26,18 @@ builder.Services.AddScoped<IInterventiService, ServerInterventiService>();
 var app = builder.Build();
 
 app.MapDefaultEndpoints();
+
+// Configure forwarded headers for reverse proxy (nginx, Azure App Service, etc.)
+// This must be called before other middleware that depends on the request URL
+if (builder.Configuration.GetValue<bool>("ReverseProxy:Enabled"))
+{
+    app.UseForwardedHeaders(new ForwardedHeadersOptions
+    {
+        ForwardedHeaders = ForwardedHeaders.XForwardedFor | 
+                          ForwardedHeaders.XForwardedProto | 
+                          ForwardedHeaders.XForwardedHost
+    });
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

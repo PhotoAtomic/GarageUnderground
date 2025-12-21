@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generate PWA Icons</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #333; color: #fff; }
+        canvas { border: 1px solid #666; margin: 10px; }
+        a { display: inline-block; margin: 10px; padding: 10px 20px; background: #4ade80; color: #000; text-decoration: none; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>PWA Icon Generator for GarageUnderground</h1>
+    <p>Click the links below to download the icons, then place them in wwwroot folder.</p>
+    
+    <h2>192x192</h2>
+    <canvas id="canvas192" width="192" height="192"></canvas>
+    <br><a id="download192" download="icon-192.png">Download icon-192.png</a>
+    
+    <h2>512x512</h2>
+    <canvas id="canvas512" width="512" height="512"></canvas>
+    <br><a id="download512" download="icon-512.png">Download icon-512.png</a>
+
+    <script>
+        function drawIcon(canvasId, size) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            
+            // Background
+            ctx.fillStyle = '#1a1a2e';
+            ctx.fillRect(0, 0, size, size);
+            
+            // Text
+            ctx.fillStyle = '#eaeaea';
+            ctx.font = `bold ${size * 0.4}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('GU', size / 2, size / 2);
+            
+            return canvas.toDataURL('image/png');
+        }
+        
+        const data192 = drawIcon('canvas192', 192);
+        const data512 = drawIcon('canvas512', 512);
+        
+        document.getElementById('download192').href = data192;
+        document.getElementById('download512').href = data512;
+    </script>
+</body>
+</html>
