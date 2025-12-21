@@ -1,4 +1,4 @@
-using GarageUnderground.Client.Authentication;
+using GarageUnderground.Authentication.Client;
 using GarageUnderground.Persistence;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;

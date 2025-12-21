@@ -1,0 +1,369 @@
+.admin-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+.admin-header {
+    margin-bottom: 1.5rem;
+}
+
+.admin-header h1 {
+    font-size: 1.5rem;
+    color: var(--color-text);
+    margin: 0 0 0.5rem 0;
+}
+
+.admin-description {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.access-denied {
+    text-align: center;
+    padding: 3rem 1rem;
+}
+
+.access-denied h2 {
+    color: var(--color-text);
+    margin: 0 0 1rem 0;
+}
+
+.access-denied p {
+    color: var(--color-text-muted);
+    margin: 0 0 1.5rem 0;
+}
+
+.btn-back {
+    display: inline-block;
+    background-color: var(--color-primary);
+    color: var(--color-text);
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.btn-back:hover {
+    filter: brightness(1.1);
+}
+
+.loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 2rem;
+    color: var(--color-text-muted);
+}
+
+.loading-spinner {
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 2px solid var(--color-surface);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.error-message {
+    background-color: rgba(220, 53, 69, 0.1);
+    border: 1px solid rgba(220, 53, 69, 0.3);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.error-message button {
+    background-color: var(--color-primary);
+    color: var(--color-text);
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 0.25rem;
+    cursor: pointer;
+}
+
+.search-box {
+    margin-bottom: 1rem;
+}
+
+.search-box input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    color: var(--color-text);
+    font-size: 0.9rem;
+}
+
+.search-box input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+}
+
+.users-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: var(--color-text-muted);
+}
+
+.user-card {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    transition: border-color 0.2s;
+}
+
+.user-card:hover {
+    border-color: var(--color-primary);
+}
+
+.user-card.selected {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.user-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    cursor: pointer;
+    margin-bottom: 0.75rem;
+}
+
+.user-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.user-name {
+    font-weight: 500;
+    color: var(--color-text);
+}
+
+.user-email {
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+}
+
+.user-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.25rem;
+}
+
+.user-provider {
+    font-size: 0.7rem;
+    font-weight: 500;
+    background-color: var(--color-primary);
+    color: var(--color-text);
+    padding: 0.15rem 0.4rem;
+    border-radius: 1rem;
+}
+
+.user-logins {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+
+.user-roles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.no-roles {
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    font-style: italic;
+}
+
+.role-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #1a1a1a;
+    background-color: #f5c518;
+    padding: 0.2rem 0.5rem;
+    border-radius: 1rem;
+}
+
+.remove-role {
+    background: none;
+    border: none;
+    color: #1a1a1a;
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 0;
+    margin-left: 0.25rem;
+    line-height: 1;
+    opacity: 0.7;
+}
+
+.remove-role:hover {
+    opacity: 1;
+}
+
+.add-role-section {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-border);
+}
+
+.add-role-section select {
+    flex: 1;
+    padding: 0.5rem;
+    background-color: white;
+    border: 1px solid var(--color-border);
+    border-radius: 0.25rem;
+    color: #1a1a1a;
+    font-size: 0.9rem;
+}
+
+.add-role-section select option {
+    background-color: white;
+    color: #1a1a1a;
+}
+
+.btn-add-role {
+    background-color: var(--color-primary);
+    color: var(--color-text);
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    white-space: nowrap;
+}
+
+.btn-add-role:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-add-role:not(:disabled):hover {
+    background-color: var(--color-primary-hover, var(--color-primary));
+    filter: brightness(1.1);
+}
+
+.roles-legend {
+    margin-top: 2rem;
+    padding: 1rem;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+}
+
+.roles-legend h3 {
+    font-size: 1rem;
+    color: var(--color-text);
+    margin: 0 0 1rem 0;
+}
+
+.roles-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.role-info {
+    display: grid;
+    grid-template-columns: auto 1fr 2fr;
+    gap: 1rem;
+    align-items: center;
+    font-size: 0.85rem;
+}
+
+.role-name {
+    font-family: monospace;
+    background-color: var(--color-background);
+    padding: 0.2rem 0.5rem;
+    border-radius: 0.25rem;
+    color: var(--color-accent);
+}
+
+.role-display {
+    font-weight: 500;
+    color: var(--color-text);
+}
+
+.role-description {
+    color: var(--color-text-muted);
+}
+
+.status-message {
+    position: fixed;
+    bottom: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-size: 0.9rem;
+    z-index: 1000;
+    animation: slideUp 0.3s ease;
+}
+
+.status-message.success {
+    background-color: rgba(40, 167, 69, 0.9);
+    color: white;
+}
+
+.status-message.error {
+    background-color: rgba(220, 53, 69, 0.9);
+    color: white;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(1rem);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+@media (max-width: 600px) {
+    .user-info {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .user-meta {
+        flex-direction: row;
+        align-items: center;
+    }
+
+    .role-info {
+        grid-template-columns: 1fr;
+        gap: 0.25rem;
+    }
+
+    .add-role-section {
+        flex-direction: column;
+    }
+}

@@ -1,10 +1,12 @@
 using GarageUnderground.Api;
 using GarageUnderground.Authentication;
-using GarageUnderground.Client.Services;
+using GarageUnderground.Authentication.Client;
+using GarageUnderground.Services.Client;
 using GarageUnderground.Components;
 using GarageUnderground.Persistence;
 using GarageUnderground.Services;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Components.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,7 +14,7 @@ builder.AddServiceDefaults();
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
-    .AddInteractiveWebAssemblyComponents();
+    .AddInteractiveServerComponents();
 
 // Add authentication services
 builder.Services.AddAppAuthentication(builder.Configuration);
@@ -20,8 +22,30 @@ builder.Services.AddAppAuthentication(builder.Configuration);
 // Add persistence services
 builder.Services.AddPersistence(builder.Configuration);
 
-// Add server-side implementation of client services (for SSR pre-rendering)
+// Add server-side services (usano direttamente il repository, non fanno chiamate HTTP)
 builder.Services.AddScoped<IInterventiService, ServerInterventiService>();
+
+// Add server-side authentication state provider
+builder.Services.AddScoped<ApiAuthenticationStateProvider, ServerApiAuthenticationStateProvider>();
+builder.Services.AddScoped<AuthenticationStateProvider>(sp => 
+    sp.GetRequiredService<ApiAuthenticationStateProvider>());
+
+// HttpContextAccessor needed for ServerApiAuthenticationStateProvider
+builder.Services.AddHttpContextAccessor();
+
+// HttpClient for components that still need to call API endpoints (like AdminRoles)
+// Configure it to call the local API
+builder.Services.AddScoped(sp =>
+{
+    var httpContextAccessor = sp.GetRequiredService<IHttpContextAccessor>();
+    var request = httpContextAccessor.HttpContext?.Request;
+    
+    var baseAddress = request != null 
+        ? $"{request.Scheme}://{request.Host}"
+        : "http://localhost:5000";
+    
+    return new HttpClient { BaseAddress = new Uri(baseAddress) };
+});
 
 var app = builder.Build();
 
@@ -40,11 +64,7 @@ if (builder.Configuration.GetValue<bool>("ReverseProxy:Enabled"))
 }
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseWebAssemblyDebugging();
-}
-else
+if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
@@ -60,8 +80,7 @@ app.UseAntiforgery();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
-    .AddInteractiveWebAssemblyRenderMode()
-    .AddAdditionalAssemblies(typeof(GarageUnderground.Client._Imports).Assembly);
+    .AddInteractiveServerRenderMode();
 
 // Map authentication endpoints
 app.MapAuthenticationEndpoints();

@@ -1,0 +1,255 @@
+@using GarageUnderground.Authentication.Client
+@using Microsoft.AspNetCore.Components.Authorization
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+@inject ApiAuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<header class="app-header">
+    <div class="header-left">
+        <a class="app-title" href="">GarageUnderground</a>
+        
+        <nav class="app-nav desktop-nav">
+            @if (user?.IsAuthenticated == true)
+            {
+                @if (HasRole("canLogin"))
+                {
+                    <NavLink class="nav-link" href="dashboard" Match="NavLinkMatch.All">
+                        <span class="nav-icon dashboard-icon" aria-hidden="true"></span>
+                        Dashboard
+                    </NavLink>
+                }
+                
+                @if (HasRole("canAdmin"))
+                {
+                    <NavLink class="nav-link" href="admin/roles" Match="NavLinkMatch.All">
+                        <span class="nav-icon admin-icon" aria-hidden="true"></span>
+                        Gestione Ruoli
+                    </NavLink>
+                }
+                
+                @if (canInstall)
+                {
+                    <button class="nav-link install-link" @onclick="HandleInstall">
+                        <span class="nav-icon install-icon" aria-hidden="true"></span>
+                        Installa
+                    </button>
+                }
+                
+                <button class="nav-link logout-link" @onclick="HandleLogout">
+                    <span class="nav-icon logout-icon" aria-hidden="true"></span>
+                    Esci
+                </button>
+            }
+            else
+            {
+                <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                    <span class="nav-icon home-icon" aria-hidden="true"></span>
+                    Home
+                </NavLink>
+            }
+        </nav>
+    </div>
+    
+    <div class="header-right">
+        @if (user?.IsAuthenticated == true)
+        {
+            <div class="user-info">
+                <div class="user-details">
+                    <span class="user-name" title="@GetDisplayName()">@GetDisplayName()</span>
+                    @if (!string.IsNullOrEmpty(user.Email) && user.Email != user.Name)
+                    {
+                        <span class="user-email" title="@user.Email">@user.Email</span>
+                    }
+                </div>
+                <div class="user-tags">
+                    <span class="user-provider">@user.Provider</span>
+                    @if (user.Roles?.Length > 0)
+                    {
+                        @foreach (var role in user.Roles)
+                        {
+                            <span class="user-role" title="@role">@role</span>
+                        }
+                    }
+                </div>
+            </div>
+        }
+        <button type="button" class="menu-toggle" @onclick="ToggleMenu" @onclick:stopPropagation="true" aria-label="Toggle navigation">
+            <span class="menu-icon"></span>
+        </button>
+    </div>
+</header>
+
+<nav class="app-nav mobile-nav @(menuOpen ? "open" : "")" @onclick="CloseMenu">
+    @if (user?.IsAuthenticated == true)
+    {
+        @if (HasRole("canLogin"))
+        {
+            <NavLink class="nav-link" href="dashboard" Match="NavLinkMatch.All">
+                <span class="nav-icon dashboard-icon" aria-hidden="true"></span>
+                Dashboard
+            </NavLink>
+        }
+        
+        @if (HasRole("canAdmin"))
+        {
+            <NavLink class="nav-link" href="admin/roles" Match="NavLinkMatch.All">
+                <span class="nav-icon admin-icon" aria-hidden="true"></span>
+                Gestione Ruoli
+            </NavLink>
+        }
+        
+        @if (canInstall)
+        {
+            <button class="nav-link install-link" @onclick="HandleInstall" @onclick:stopPropagation="true">
+                <span class="nav-icon install-icon" aria-hidden="true"></span>
+                Installa
+            </button>
+        }
+        
+        <button class="nav-link logout-link" @onclick="HandleLogout" @onclick:stopPropagation="true">
+            <span class="nav-icon logout-icon" aria-hidden="true"></span>
+            Esci
+        </button>
+    }
+    else
+    {
+        <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+            <span class="nav-icon home-icon" aria-hidden="true"></span>
+            Home
+        </NavLink>
+    }
+</nav>
+
+@code {
+    private bool menuOpen;
+    private UserInfo? user;
+    private bool canInstall;
+    private DotNetObjectReference<NavMenu>? dotNetRef;
+
+    protected override async Task OnInitializedAsync()
+    {
+        AuthStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
+        
+        await RefreshUserAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            dotNetRef = DotNetObjectReference.Create(this);
+            try
+            {
+                // Register this component instance with the JS PWA install handler
+                await JSRuntime.InvokeVoidAsync("pwaInstall.setDotNetHelper", dotNetRef);
+                
+                // Also check current state immediately
+                var isInstalled = await JSRuntime.InvokeAsync<bool>("pwaInstall.isInstalled");
+                var canInstallNow = await JSRuntime.InvokeAsync<bool>("pwaInstall.canInstall");
+                canInstall = canInstallNow && !isInstalled;
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"PWA install error: {ex.Message}");
+                canInstall = false;
+            }
+        }
+    }
+
+    [JSInvokable]
+    public void OnPwaInstallStateChanged(bool canInstallNow, bool isInstalled)
+    {
+        canInstall = canInstallNow && !isInstalled;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async void OnAuthenticationStateChanged(Task<AuthenticationState> task)
+    {
+        await RefreshUserAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RefreshUserAsync()
+    {
+        user = await AuthStateProvider.GetCurrentUserAsync(forceRefresh: true);
+    }
+
+    private bool HasRole(string roleName)
+    {
+        return user?.Roles?.Any(r => r.Equals(roleName, StringComparison.OrdinalIgnoreCase)) == true;
+    }
+
+    private string GetDisplayName()
+    {
+        if (!string.IsNullOrEmpty(user?.Name))
+        {
+            return user.Name;
+        }
+        
+        if (!string.IsNullOrEmpty(user?.Email))
+        {
+            var atIndex = user.Email.IndexOf('@');
+            return atIndex > 0 ? user.Email[..atIndex] : user.Email;
+        }
+        
+        return "Utente";
+    }
+
+    private void ToggleMenu()
+    {
+        Console.WriteLine($"ToggleMenu called. Current state: {menuOpen}, New state: {!menuOpen}");
+        menuOpen = !menuOpen;
+        StateHasChanged();
+    }
+
+    private void CloseMenu()
+    {
+        if (menuOpen)
+        {
+            Console.WriteLine("CloseMenu called");
+            menuOpen = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleInstall()
+    {
+        try
+        {
+            var installed = await JSRuntime.InvokeAsync<bool>("pwaInstall.promptInstall");
+            if (installed)
+            {
+                canInstall = false;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Install error: {ex.Message}");
+        }
+    }
+
+    private async Task HandleLogout()
+    {
+        Navigation.NavigateTo($"{Navigation.BaseUri}api/auth/logout", forceLoad: true);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        AuthStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
+        
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("pwaInstall.disposeDotNetHelper");
+        }
+        catch
+        {
+            // Ignore errors during disposal
+        }
+        
+        dotNetRef?.Dispose();
+    }
+}

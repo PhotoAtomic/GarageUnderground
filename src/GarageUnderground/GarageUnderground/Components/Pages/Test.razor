@@ -1,0 +1,19 @@
+@page "/test"
+@rendermode InteractiveServer
+
+<PageTitle>Test - GarageUnderground</PageTitle>
+
+<h1>Test Page</h1>
+<p>Se vedi questa pagina, Blazor Server funziona!</p>
+<p>Ora: @DateTime.Now.ToString("HH:mm:ss")</p>
+
+<button @onclick="IncrementCount">Clicca (@count)</button>
+
+@code {
+    private int count = 0;
+
+    private void IncrementCount()
+    {
+        count++;
+    }
+}

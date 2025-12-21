@@ -1,6 +1,5 @@
-using GarageUnderground.Client.Models;
-using GarageUnderground.Client.Services;
 using GarageUnderground.Models;
+using GarageUnderground.Services.Client;
 using GarageUnderground.Persistence;
 
 namespace GarageUnderground.Services;

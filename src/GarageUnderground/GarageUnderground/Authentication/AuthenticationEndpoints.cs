@@ -32,8 +32,9 @@ public static class AuthenticationEndpoints
         // Mock login (only for mock auth)
         group.MapPost("/mock-login", MockLogin);
 
-        // Logout
+        // Logout - supporta sia POST che GET per permettere navigation diretta
         group.MapPost("/logout", Logout);
+        group.MapGet("/logout", Logout);
 
         // Debug endpoints - protected with CanAdmin policy (case-insensitive)
         var debugGroup = endpoints.MapGroup("/api/auth/debug")
@@ -232,12 +233,19 @@ public static class AuthenticationEndpoints
 
     private static async Task<IResult> Logout(HttpContext context)
     {
+        var logger = context.RequestServices.GetRequiredService<ILogger<IResult>>();
+        logger.LogInformation("Logout called with method: {Method}", context.Request.Method);
+        
         // Remove mock auth cookie if present
         context.Response.Cookies.Delete("mock_auth");
 
         await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
 
-        return Results.Ok(new { success = true, redirectUrl = "/" });
+        logger.LogInformation("User signed out, redirecting to /");
+        
+        // Scrivi manualmente il redirect nella risposta
+        context.Response.Redirect("/");
+        return Results.Empty;
     }
 
     private static async Task<IResult> AddRoleToCurrentUser(

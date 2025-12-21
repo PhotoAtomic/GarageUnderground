@@ -1,11 +1,11 @@
 @page "/dashboard"
-@using GarageUnderground.Client.Authentication
-@using GarageUnderground.Client.Models
-@using GarageUnderground.Client.Services
+@using GarageUnderground.Authentication.Client
+@using GarageUnderground.Models
+@using GarageUnderground.Services.Client
 @inject ApiAuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Navigation
 @inject IInterventiService InterventiService
-@rendermode InteractiveWebAssembly
+@rendermode InteractiveServer
 
 <PageTitle>Dashboard - GarageUnderground</PageTitle>
 
@@ -243,7 +243,7 @@ else if (user?.IsAuthenticated == true)
         flex-direction: column;
         gap: 1.5rem;
         min-height: calc(100vh - var(--header-height) - 4rem);
-        /* padding: 1rem; */
+       /*  padding: 1rem; */
     }
 
     /* Search Section - Oversized for big hands */
@@ -254,12 +254,12 @@ else if (user?.IsAuthenticated == true)
     .search-container {
         display: flex;
         gap: 1rem;
-        flex-wrap: wrap;
+        align-items: stretch;
     }
 
     .search-input {
         flex: 1;
-        min-width: 200px;
+        min-width: 0;
         padding: 1.25rem 1.5rem;
         font-size: 1.25rem;
         border: 2px solid var(--color-primary);

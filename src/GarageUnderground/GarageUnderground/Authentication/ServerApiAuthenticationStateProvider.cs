@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using GarageUnderground.Client.Authentication;
+using GarageUnderground.Authentication.Client;
 
 namespace GarageUnderground.Authentication;
 
@@ -22,13 +22,13 @@ public sealed class ServerApiAuthenticationStateProvider : ApiAuthenticationStat
         this.providerService = providerService;
     }
 
-    public override Task<Client.Authentication.UserInfo?> GetCurrentUserAsync(bool forceRefresh = false)
+    public override Task<Client.UserInfo?> GetCurrentUserAsync(bool forceRefresh = false)
     {
         var context = httpContextAccessor.HttpContext;
         if (context?.User.Identity?.IsAuthenticated != true)
         {
-            return Task.FromResult<Client.Authentication.UserInfo?>(
-                new Client.Authentication.UserInfo(false, null, null, null, null));
+            return Task.FromResult<Client.UserInfo?>(
+                new Client.UserInfo(false, null, null, null, null));
         }
 
         var claims = context.User.Claims;
@@ -37,18 +37,18 @@ public sealed class ServerApiAuthenticationStateProvider : ApiAuthenticationStat
         var provider = claims.FirstOrDefault(c => c.Type == "auth_provider")?.Value;
         var roles = claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value).ToArray();
 
-        return Task.FromResult<Client.Authentication.UserInfo?>(
-            new Client.Authentication.UserInfo(true, name, email, provider, roles));
+        return Task.FromResult<Client.UserInfo?>(
+            new Client.UserInfo(true, name, email, provider, roles));
     }
 
-    public override Task<Client.Authentication.ProvidersResponse?> GetProvidersAsync()
+    public override Task<Client.ProvidersResponse?> GetProvidersAsync()
     {
         var providers = providerService.GetAvailableProviders()
-            .Select(p => new Client.Authentication.ProviderInfo(p.Scheme, p.DisplayName, p.IconClass))
+            .Select(p => new Client.ProviderInfo(p.Scheme, p.DisplayName, p.IconClass))
             .ToArray();
 
-        return Task.FromResult<Client.Authentication.ProvidersResponse?>(
-            new Client.Authentication.ProvidersResponse(providers, providerService.IsMockAuthenticationActive));
+        return Task.FromResult<Client.ProvidersResponse?>(
+            new Client.ProvidersResponse(providers, providerService.IsMockAuthenticationActive));
     }
 
     public override Task<bool> MockLoginAsync(string? displayName)

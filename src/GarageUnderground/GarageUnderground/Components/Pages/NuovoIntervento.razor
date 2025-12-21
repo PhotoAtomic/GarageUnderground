@@ -1,13 +1,13 @@
 @page "/intervento/nuovo"
 @page "/intervento/modifica/{Id:guid}"
-@using GarageUnderground.Client.Authentication
-@using GarageUnderground.Client.Models
-@using GarageUnderground.Client.Services
+@using GarageUnderground.Authentication.Client
+@using GarageUnderground.Models
+@using GarageUnderground.Services.Client
 @using Microsoft.AspNetCore.Components.Authorization
 @inject ApiAuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Navigation
 @inject IInterventiService InterventiService
-@rendermode InteractiveWebAssembly
+@rendermode InteractiveServer
 
 <PageTitle>@(IsEditMode ? "Modifica" : "Nuovo") Intervento - GarageUnderground</PageTitle>
 
