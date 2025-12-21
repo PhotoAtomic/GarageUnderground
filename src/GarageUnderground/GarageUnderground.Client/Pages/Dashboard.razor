@@ -25,21 +25,25 @@ else if (user?.IsAuthenticated == true)
                        placeholder="Inserisci la targa del veicolo..."
                        @bind="searchTarga"
                        @bind:event="oninput"
+                       @bind:after="OnSearchInputChanged"
                        @onkeydown="HandleSearchKeyDown" />
-                <button class="btn btn-search" @onclick="SearchInterventi" disabled="@isSearching">
-                    @if (isSearching)
-                    {
-                        <span class="btn-spinner"></span>
-                    }
-                    else
-                    {
-                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="11" cy="11" r="8"/>
-                            <path d="m21 21-4.35-4.35"/>
-                        </svg>
-                        <span>Cerca</span>
-                    }
-                </button>
+                @if (showSearchButton)
+                {
+                    <button class="btn btn-search" @onclick="SearchInterventi" disabled="@isSearching">
+                        @if (isSearching)
+                        {
+                            <span class="btn-spinner"></span>
+                        }
+                        else
+                        {
+                            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="11" cy="11" r="8"/>
+                                <path d="m21 21-4.35-4.35"/>
+                            </svg>
+                            <span>Cerca</span>
+                        }
+                    </button>
+                }
             </div>
         </div>
 
@@ -66,24 +70,6 @@ else if (user?.IsAuthenticated == true)
                                 <div class="intervento-header">
                                     <span class="intervento-data">@intervento.Data.ToString("dd/MM/yyyy")</span>
                                     <div class="intervento-header-right">
-                                        <span class="intervento-stato @(intervento.Pagato ? "stato-pagato" : "stato-non-pagato")">
-                                            @if (intervento.Pagato)
-                                            {
-                                                <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-                                                    <polyline points="20 6 9 17 4 12"/>
-                                                </svg>
-                                                <span>Pagato</span>
-                                            }
-                                            else
-                                            {
-                                                <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-                                                    <circle cx="12" cy="12" r="10"/>
-                                                    <line x1="12" y1="8" x2="12" y2="12"/>
-                                                    <line x1="12" y1="16" x2="12.01" y2="16"/>
-                                                </svg>
-                                                <span>Da pagare</span>
-                                            }
-                                        </span>
                                         <button class="btn-edit" @onclick="() => NavigateToEditIntervento(intervento.Id)" title="Modifica intervento">
                                             <svg class="icon-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
@@ -94,6 +80,24 @@ else if (user?.IsAuthenticated == true)
                                 </div>
                                 <p class="intervento-descrizione">@intervento.Descrizione</p>
                                 <div class="intervento-footer">
+                                    <span class="intervento-stato @(intervento.Pagato ? "stato-pagato" : "stato-non-pagato")">
+                                        @if (intervento.Pagato)
+                                        {
+                                            <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                                <polyline points="20 6 9 17 4 12"/>
+                                            </svg>
+                                            <span>Pagato</span>
+                                        }
+                                        else
+                                        {
+                                            <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                                <circle cx="12" cy="12" r="10"/>
+                                                <line x1="12" y1="8" x2="12" y2="12"/>
+                                                <line x1="12" y1="16" x2="12.01" y2="16"/>
+                                            </svg>
+                                            <span>Da pagare</span>
+                                        }
+                                    </span>
                                     <span class="intervento-costo">€ @intervento.Costo.ToString("N2")</span>
                                 </div>
                             </div>
@@ -113,6 +117,7 @@ else if (user?.IsAuthenticated == true)
     private bool isLoading = true;
     private bool isSearching = false;
     private bool hasSearched = false;
+    private bool showSearchButton = true;
     private string searchTarga = string.Empty;
     private string currentTarga = string.Empty;
     private List<InterventoDto> interventi = [];
@@ -148,6 +153,17 @@ else if (user?.IsAuthenticated == true)
         }
     }
 
+    private void OnSearchInputChanged()
+    {
+        // When input changes, clear results and show search button
+        if (hasSearched)
+        {
+            interventi.Clear();
+            hasSearched = false;
+            showSearchButton = true;
+        }
+    }
+
     private async Task HandleSearchKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter")
@@ -171,6 +187,9 @@ else if (user?.IsAuthenticated == true)
             var results = await InterventiService.GetByTargaAsync(currentTarga);
             interventi = results.ToList();
             hasSearched = true;
+            
+            // Hide search button only if results were found
+            showSearchButton = interventi.Count == 0;
         }
         finally
         {
@@ -377,6 +396,21 @@ else if (user?.IsAuthenticated == true)
         color: var(--color-text);
     }
 
+    .intervento-descrizione {
+        font-size: 1.1rem;
+        color: var(--color-text);
+        margin: 0 0 1rem;
+        line-height: 1.5;
+    }
+
+    .intervento-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: nowrap;
+    }
+
     .intervento-stato {
         padding: 0.5rem 1rem;
         border-radius: 2rem;
@@ -385,6 +419,8 @@ else if (user?.IsAuthenticated == true)
         display: flex;
         align-items: center;
         gap: 0.4rem;
+        flex-shrink: 0;
+        white-space: nowrap;
     }
 
     .stato-pagato {
@@ -397,22 +433,12 @@ else if (user?.IsAuthenticated == true)
         color: var(--color-accent);
     }
 
-    .intervento-descrizione {
-        font-size: 1.1rem;
-        color: var(--color-text);
-        margin: 0 0 1rem;
-        line-height: 1.5;
-    }
-
-    .intervento-footer {
-        display: flex;
-        justify-content: flex-end;
-    }
-
     .intervento-costo {
         font-size: 1.5rem;
         font-weight: 700;
         color: var(--color-text);
+        flex-shrink: 0;
+        white-space: nowrap;
     }
 
     .dashboard-footer {
