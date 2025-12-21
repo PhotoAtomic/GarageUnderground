@@ -1,13 +1,12 @@
 @page "/admin/roles"
-@rendermode InteractiveServer
-@using Microsoft.AspNetCore.Components.Authorization
-@using System.Net.Http.Json
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using GarageUnderground.Authentication.Client
-@using System.Security.Claims
-@inject HttpClient Http
-@inject NavigationManager Navigation
+@using GarageUnderground.Persistence
+@using GarageUnderground.Models
 @inject ApiAuthenticationStateProvider AuthStateProvider
-@inject AuthenticationStateProvider AuthStateProviderBase
+@inject NavigationManager Navigation
+@inject IUserRegistrationRepository UserRegistrationRepository
+@inject IUserRolesRepository UserRolesRepository
 
 <PageTitle>Gestione Ruoli - GarageUnderground</PageTitle>
 
@@ -56,9 +55,9 @@ else
         {
             <div class="users-section">
                 <div class="search-box">
-                    <input type="text" 
-                           placeholder="Cerca per email o nome..." 
-                           @bind="searchTerm" 
+                    <input type="text"
+                           placeholder="Cerca per email o nome..."
+                           @bind="searchTerm"
                            @bind:event="oninput"
                            @onkeyup="FilterUsers" />
                 </div>
@@ -96,15 +95,17 @@ else
                                         {
                                             <span class="role-tag">
                                                 @role
-                                                <button class="remove-role" 
+                                                <button class="remove-role"
                                                         @onclick="() => RemoveRole(user.Email, role)"
                                                         @onclick:stopPropagation="true"
-                                                        title="Rimuovi ruolo">×</button>
+                                                        title="Rimuovi ruolo">
+                                                    ×
+                                                </button>
                                             </span>
                                         }
                                     }
                                 </div>
-                                
+
                                 @if (selectedUser?.Email == user.Email)
                                 {
                                     <div class="add-role-section">
@@ -115,10 +116,20 @@ else
                                                 <option value="@role.Name">@role.DisplayName</option>
                                             }
                                         </select>
-                                        <button class="btn-add-role" 
+                                        <button class="btn-add-role"
                                                 @onclick="() => AddRole(user.Email)"
                                                 disabled="@string.IsNullOrEmpty(selectedRole)">
                                             Aggiungi Ruolo
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="danger-zone">
+                                        <button class="btn-delete-user" @onclick="() => ShowDeleteConfirmation(user)">
+                                            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <polyline points="3 6 5 6 21 6"/>
+                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                            </svg>
+                                            Elimina Utente
                                         </button>
                                     </div>
                                 }
@@ -155,16 +166,61 @@ else
     </div>
 }
 
+@if (userToDelete != null)
+{
+    <div class="modal-overlay" @onclick="HideDeleteConfirmation">
+        <div class="modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <svg class="modal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <h2>Conferma Eliminazione Utente</h2>
+            </div>
+            <p class="modal-message">
+                Sei sicuro di voler eliminare completamente l'utente<br/>
+                <strong>@userToDelete.Email</strong> (@(userToDelete.DisplayName ?? "Nome non disponibile"))?<br/>
+                <br/>
+                <span class="warning-text">Questa azione eliminerà:</span><br/>
+                • La registrazione utente<br/>
+                • Tutti i ruoli assegnati<br/>
+                • Lo storico degli accessi<br/>
+                <br/>
+                <strong class="danger-text">Questa azione non può essere annullata!</strong>
+            </p>
+            <div class="modal-actions">
+                <button class="btn btn-cancel-modal" @onclick="HideDeleteConfirmation" disabled="@isDeleting">
+                    Annulla
+                </button>
+                <button class="btn btn-confirm-delete" @onclick="ConfirmDeleteUser" disabled="@isDeleting">
+                    @if (isDeleting)
+                    {
+                        <span class="btn-spinner"></span>
+                        <span>Eliminazione...</span>
+                    }
+                    else
+                    {
+                        <span>Elimina Definitivamente</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
-    private List<UserWithRoles> users = [];
-    private List<UserWithRoles> filteredUsers = [];
+    private List<UserWithRolesDto> users = [];
+    private List<UserWithRolesDto> filteredUsers = [];
     private List<RoleInfo> availableRoles = [];
-    private UserWithRoles? selectedUser;
+    private UserWithRolesDto? selectedUser;
+    private UserWithRolesDto? userToDelete;
     private string searchTerm = "";
     private string selectedRole = "";
     private bool loading = true;
     private bool initialized;
     private bool isAuthorized;
+    private bool isDeleting;
     private string? errorMessage;
     private string? statusMessage;
     private bool isError;
@@ -172,43 +228,20 @@ else
     protected override async Task OnInitializedAsync()
     {
         await CheckAuthorizationAsync();
+        
+        if (isAuthorized)
+        {
+            LoadAvailableRoles();
+            await LoadUsers();
+        }
+        
+        initialized = true;
     }
 
     private async Task CheckAuthorizationAsync()
     {
-        try
-        {
-            // Usa AuthenticationStateProvider standard per avere accesso ai claims del server
-            var authState = await AuthStateProviderBase.GetAuthenticationStateAsync();
-            var user = authState.User;
-            
-            Console.WriteLine($"[AdminRoles] User authenticated: {user.Identity?.IsAuthenticated}");
-            Console.WriteLine($"[AdminRoles] User identity name: {user.Identity?.Name}");
-            
-            // Log tutti i ruoli
-            var roles = user.Claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value).ToArray();
-            Console.WriteLine($"[AdminRoles] User roles: {string.Join(", ", roles)}");
-            
-            // Verifica se l'utente ha il ruolo canAdmin
-            isAuthorized = user.IsInRole("canAdmin");
-            Console.WriteLine($"[AdminRoles] Is authorized (canAdmin): {isAuthorized}");
-            
-            if (isAuthorized)
-            {
-                await LoadUsers();
-                await LoadAvailableRoles();
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[AdminRoles] Error: {ex.Message}");
-            errorMessage = $"Errore durante la verifica delle autorizzazioni: {ex.Message}";
-            isAuthorized = false;
-        }
-        finally
-        {
-            initialized = true;
-        }
+        var user = await AuthStateProvider.GetCurrentUserAsync(forceRefresh: true);
+        isAuthorized = user?.Roles?.Any(r => r.Equals("canAdmin", StringComparison.OrdinalIgnoreCase)) == true;
     }
 
     private async Task LoadUsers()
@@ -217,18 +250,24 @@ else
         {
             loading = true;
             errorMessage = null;
-            users = await Http.GetFromJsonAsync<List<UserWithRoles>>("/api/admin/roles/users") ?? [];
+            
+            var registrations = await UserRegistrationRepository.GetAllAsync();
+            
+            users.Clear();
+            foreach (var reg in registrations)
+            {
+                var userRole = await UserRolesRepository.GetByUserIdentifierAsync(reg.Email);
+                users.Add(new UserWithRolesDto(
+                    reg.Email,
+                    reg.DisplayName,
+                    reg.Provider,
+                    userRole?.Roles.ToArray() ?? [],
+                    reg.FirstLoginAt,
+                    reg.LastLoginAt,
+                    reg.LoginCount));
+            }
+            
             FilterUsers();
-        }
-        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Forbidden)
-        {
-            errorMessage = "Non hai i permessi per accedere ai dati.";
-            isAuthorized = false;
-        }
-        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-        {
-            errorMessage = "Sessione scaduta. Effettua nuovamente il login.";
-            isAuthorized = false;
         }
         catch (Exception ex)
         {
@@ -240,21 +279,13 @@ else
         }
     }
 
-    private async Task LoadAvailableRoles()
+    private void LoadAvailableRoles()
     {
-        try
-        {
-            availableRoles = await Http.GetFromJsonAsync<List<RoleInfo>>("/api/admin/roles/available") ?? [];
-        }
-        catch
-        {
-            // Non-critical, use defaults
-            availableRoles =
-            [
-                new RoleInfo("canAdmin", "Amministratore", "Può gestire i ruoli utente e le impostazioni di sistema"),
-                new RoleInfo("canLogin", "Accesso", "Può accedere all'applicazione")
-            ];
-        }
+        availableRoles =
+        [
+            new RoleInfo("canAdmin", "Amministratore", "Può gestire i ruoli utente e le impostazioni di sistema"),
+            new RoleInfo("canLogin", "Accesso", "Può accedere all'applicazione")
+        ];
     }
 
     private void FilterUsers()
@@ -273,7 +304,7 @@ else
         }
     }
 
-    private void SelectUser(UserWithRoles user)
+    private void SelectUser(UserWithRolesDto user)
     {
         selectedUser = selectedUser?.Email == user.Email ? null : user;
         selectedRole = "";
@@ -288,19 +319,27 @@ else
 
         try
         {
-            var response = await Http.PostAsJsonAsync($"/api/admin/roles/users/{Uri.EscapeDataString(email)}/roles", 
-                new { Role = selectedRole });
-
-            if (response.IsSuccessStatusCode)
+            var userRole = await UserRolesRepository.GetByUserIdentifierAsync(email);
+            
+            if (userRole == null)
             {
-                ShowStatus($"Ruolo '{selectedRole}' aggiunto a {email}", false);
-                selectedRole = "";
-                await LoadUsers();
+                userRole = new UserRole
+                {
+                    UserIdentifier = email,
+                    IdentifierType = "email",
+                    Roles = [selectedRole]
+                };
             }
-            else
+            else if (!userRole.Roles.Contains(selectedRole))
             {
-                ShowStatus($"Errore nell'aggiunta del ruolo", true);
+                userRole.Roles.Add(selectedRole);
             }
+            
+            await UserRolesRepository.UpsertAsync(userRole);
+            
+            ShowStatus($"Ruolo '{selectedRole}' aggiunto a {email}", false);
+            selectedRole = "";
+            await LoadUsers();
         }
         catch (Exception ex)
         {
@@ -312,17 +351,15 @@ else
     {
         try
         {
-            var response = await Http.DeleteAsync(
-                $"/api/admin/roles/users/{Uri.EscapeDataString(email)}/roles/{Uri.EscapeDataString(role)}");
-
-            if (response.IsSuccessStatusCode)
+            var userRole = await UserRolesRepository.GetByUserIdentifierAsync(email);
+            
+            if (userRole != null && userRole.Roles.Contains(role))
             {
+                userRole.Roles.Remove(role);
+                await UserRolesRepository.UpsertAsync(userRole);
+                
                 ShowStatus($"Ruolo '{role}' rimosso da {email}", false);
                 await LoadUsers();
-            }
-            else
-            {
-                ShowStatus($"Errore nella rimozione del ruolo", true);
             }
         }
         catch (Exception ex)
@@ -335,8 +372,7 @@ else
     {
         statusMessage = message;
         isError = error;
-        
-        // Auto-hide after 3 seconds
+
         _ = Task.Run(async () =>
         {
             await Task.Delay(3000);
@@ -351,7 +387,46 @@ else
         });
     }
 
-    private record UserWithRoles(
+    private void ShowDeleteConfirmation(UserWithRolesDto user)
+    {
+        userToDelete = user;
+    }
+
+    private void HideDeleteConfirmation()
+    {
+        userToDelete = null;
+    }
+
+    private async Task ConfirmDeleteUser()
+    {
+        if (userToDelete == null) return;
+
+        isDeleting = true;
+        
+        try
+        {
+            // Elimina i ruoli dell'utente
+            await UserRolesRepository.DeleteAsync(userToDelete.Email);
+            
+            // Elimina la registrazione utente
+            await UserRegistrationRepository.DeleteAsync(userToDelete.Email);
+            
+            ShowStatus($"Utente {userToDelete.Email} eliminato definitivamente", false);
+            HideDeleteConfirmation();
+            selectedUser = null;
+            await LoadUsers();
+        }
+        catch (Exception ex)
+        {
+            ShowStatus($"Errore durante l'eliminazione: {ex.Message}", true);
+        }
+        finally
+        {
+            isDeleting = false;
+        }
+    }
+
+    private record UserWithRolesDto(
         string Email,
         string? DisplayName,
         string? Provider,

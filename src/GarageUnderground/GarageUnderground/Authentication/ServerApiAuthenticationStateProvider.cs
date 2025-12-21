@@ -25,20 +25,39 @@ public sealed class ServerApiAuthenticationStateProvider : ApiAuthenticationStat
     public override Task<Client.UserInfo?> GetCurrentUserAsync(bool forceRefresh = false)
     {
         var context = httpContextAccessor.HttpContext;
+        
+        Console.WriteLine($"[ServerApiAuthenticationStateProvider] GetCurrentUserAsync called with forceRefresh={forceRefresh}");
+        Console.WriteLine($"[ServerApiAuthenticationStateProvider] HttpContext is null: {context == null}");
+        
+        if (context != null)
+        {
+            Console.WriteLine($"[ServerApiAuthenticationStateProvider] User.Identity is null: {context.User.Identity == null}");
+            Console.WriteLine($"[ServerApiAuthenticationStateProvider] User authenticated: {context.User.Identity?.IsAuthenticated}");
+        }
+        
         if (context?.User.Identity?.IsAuthenticated != true)
         {
             return Task.FromResult<Client.UserInfo?>(
                 new Client.UserInfo(false, null, null, null, null));
         }
 
-        var claims = context.User.Claims;
+        var claims = context.User.Claims.ToList();
+        Console.WriteLine($"[ServerApiAuthenticationStateProvider] Total claims: {claims.Count}");
+        
         var name = claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
         var email = claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value;
         var provider = claims.FirstOrDefault(c => c.Type == "auth_provider")?.Value;
         var roles = claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value).ToArray();
+        
+        Console.WriteLine($"[ServerApiAuthenticationStateProvider] Name: {name}");
+        Console.WriteLine($"[ServerApiAuthenticationStateProvider] Email: {email}");
+        Console.WriteLine($"[ServerApiAuthenticationStateProvider] Provider: {provider}");
+        Console.WriteLine($"[ServerApiAuthenticationStateProvider] Roles found: {roles.Length} - [{string.Join(", ", roles)}]");
 
-        return Task.FromResult<Client.UserInfo?>(
-            new Client.UserInfo(true, name, email, provider, roles));
+        var result = new Client.UserInfo(true, name, email, provider, roles);
+        Console.WriteLine($"[ServerApiAuthenticationStateProvider] Returning UserInfo with IsAuthenticated={result.IsAuthenticated}, Roles={string.Join(",", result.Roles ?? Array.Empty<string>())}");
+        
+        return Task.FromResult<Client.UserInfo?>(result);
     }
 
     public override Task<Client.ProvidersResponse?> GetProvidersAsync()

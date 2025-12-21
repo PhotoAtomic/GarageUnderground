@@ -107,6 +107,14 @@ public sealed class LiteDbUserRegistrationRepository : IUserRegistrationReposito
             results.OrderByDescending(x => x.LastLoginAt).ToList());
     }
 
+    public Task<bool> DeleteAsync(string email, CancellationToken cancellationToken = default)
+    {
+        var collection = database.GetCollection<UserRegistration>(CollectionName);
+        var normalizedEmail = NormalizeEmail(email);
+        var deleted = collection.DeleteMany(x => x.Email == normalizedEmail);
+        return Task.FromResult(deleted > 0);
+    }
+
     private static string NormalizeEmail(string email)
     {
         return email.Trim().ToLowerInvariant();

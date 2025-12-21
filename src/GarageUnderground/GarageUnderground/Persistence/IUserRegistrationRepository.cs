@@ -37,4 +37,12 @@ public interface IUserRegistrationRepository
     Task<IReadOnlyList<UserRegistration>> SearchAsync(
         string? searchTerm,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes a user registration by email.
+    /// </summary>
+    /// <param name="email">The user's email address.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True if deleted, false if not found.</returns>
+    Task<bool> DeleteAsync(string email, CancellationToken cancellationToken = default);
 }
