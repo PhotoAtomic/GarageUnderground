@@ -1,5 +1,6 @@
 @using GarageUnderground.Authentication.Client
 @using Microsoft.AspNetCore.Components.Authorization
+@using System.Reflection
 @rendermode InteractiveServer
 @implements IAsyncDisposable
 @inject ApiAuthenticationStateProvider AuthStateProvider
@@ -49,6 +50,8 @@
                     Home
                 </NavLink>
             }
+            
+            <span class="app-version desktop-only">v @GetVersion()</span>
         </nav>
     </div>
     
@@ -120,6 +123,10 @@
             Home
         </NavLink>
     }
+    
+    <div class="mobile-version">
+        <span>v @GetVersion()</span>
+    </div>
 </nav>
 
 @code {
@@ -196,6 +203,12 @@
         }
         
         return "Utente";
+    }
+
+    private static string GetVersion()
+    {
+        var version = Assembly.GetExecutingAssembly().GetName().Version;
+        return version != null ? $"{version.Major}.{version.Minor}.{version.Build}.{version.Revision}" : "1.0.0";
     }
 
     private void ToggleMenu()
