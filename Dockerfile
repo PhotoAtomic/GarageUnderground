@@ -5,7 +5,6 @@ WORKDIR /src
 
 # Copy project files for restore
 COPY src/GarageUnderground/GarageUnderground/GarageUnderground.csproj GarageUnderground/GarageUnderground/
-COPY src/GarageUnderground/GarageUnderground.Client/GarageUnderground.Client.csproj GarageUnderground/GarageUnderground.Client/
 COPY src/GarageUnderground.ServiceDefaults/GarageUnderground.ServiceDefaults.csproj GarageUnderground.ServiceDefaults/
 
 # Restore dependencies
@@ -34,12 +33,12 @@ ENV ASPNETCORE_ENVIRONMENT=Production
 # Expose port
 EXPOSE 8080
 
-# Create data directory for database
-RUN mkdir -p /data
-VOLUME ["/data"]
-
 # Copy published application
 COPY --from=build /app/publish ./
+
+# Create data directory for database AFTER copying the app
+RUN mkdir -p /app/data && chmod -R 777 /app/data
+VOLUME ["/app/data"]
 
 # Set entrypoint
 ENTRYPOINT ["dotnet", "GarageUnderground.dll"]

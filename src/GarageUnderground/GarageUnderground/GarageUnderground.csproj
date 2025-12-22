@@ -8,9 +8,9 @@
     <UserSecretsId>dd08b0d4-e77c-4eb0-883f-66f275d02eeb</UserSecretsId>
     
     <!-- Versioning -->
-    <Version>1.1.0</Version>
-    <AssemblyVersion>1.1.*</AssemblyVersion>
-    <FileVersion>1.1.0.0</FileVersion>
+    <Version>1.0.5</Version>
+    <AssemblyVersion>1.0.5.*</AssemblyVersion>
+    <FileVersion>1.0.5.0</FileVersion>
     <Deterministic>false</Deterministic>
   </PropertyGroup>
 
