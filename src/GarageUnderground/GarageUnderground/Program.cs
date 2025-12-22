@@ -120,5 +120,6 @@ app.MapAuthenticationEndpoints();
 // Map API endpoints
 app.MapInterventiEndpoints();
 app.MapAdminRolesEndpoints();
+app.MapDiagnosticEndpoints();
 
 app.Run();

@@ -10,11 +10,13 @@ public sealed class LiteDbInterventiRepository : IInterventiRepository
 {
     private const string CollectionName = "interventi";
     private readonly ILiteDatabase database;
+    private readonly IDatabaseChangeNotifier changeNotifier;
 
-    public LiteDbInterventiRepository(ILiteDatabase database)
+    public LiteDbInterventiRepository(ILiteDatabase database, IDatabaseChangeNotifier changeNotifier)
     {
         this.database = database ?? throw new ArgumentNullException(nameof(database));
-        
+        this.changeNotifier = changeNotifier ?? throw new ArgumentNullException(nameof(changeNotifier));
+
         // Configura indici per ottimizzare le query
         var collection = this.database.GetCollection<Intervento>(CollectionName);
         collection.EnsureIndex(x => x.Targa);
@@ -30,7 +32,7 @@ public sealed class LiteDbInterventiRepository : IInterventiRepository
 
         var normalizedTarga = NormalizeTarga(targa);
         var collection = database.GetCollection<Intervento>(CollectionName);
-        
+
         var interventi = collection
             .Find(x => x.Targa == normalizedTarga)
             .OrderByDescending(x => x.Data)
@@ -58,7 +60,10 @@ public sealed class LiteDbInterventiRepository : IInterventiRepository
 
         var collection = database.GetCollection<Intervento>(CollectionName);
         collection.Insert(normalizedIntervento);
-        
+
+        // Notifica che ci sono modifiche da persistere
+        changeNotifier.NotifyChange();
+
         return Task.FromResult(normalizedIntervento);
     }
 
@@ -73,7 +78,13 @@ public sealed class LiteDbInterventiRepository : IInterventiRepository
 
         var collection = database.GetCollection<Intervento>(CollectionName);
         var updated = collection.Update(normalizedIntervento);
-        
+
+        // Notifica che ci sono modifiche da persistere
+        if (updated)
+        {
+            changeNotifier.NotifyChange();
+        }
+
         return Task.FromResult(updated);
     }
 
@@ -81,7 +92,13 @@ public sealed class LiteDbInterventiRepository : IInterventiRepository
     {
         var collection = database.GetCollection<Intervento>(CollectionName);
         var deleted = collection.Delete(id);
-        
+
+        // Notifica che ci sono modifiche da persistere
+        if (deleted)
+        {
+            changeNotifier.NotifyChange();
+        }
+
         return Task.FromResult(deleted);
     }
 

@@ -10,10 +10,12 @@ public sealed class LiteDbUserRegistrationRepository : IUserRegistrationReposito
 {
     private const string CollectionName = "user_registrations";
     private readonly ILiteDatabase database;
+    private readonly IDatabaseChangeNotifier changeNotifier;
 
-    public LiteDbUserRegistrationRepository(ILiteDatabase database)
+    public LiteDbUserRegistrationRepository(ILiteDatabase database, IDatabaseChangeNotifier changeNotifier)
     {
         this.database = database ?? throw new ArgumentNullException(nameof(database));
+        this.changeNotifier = changeNotifier ?? throw new ArgumentNullException(nameof(changeNotifier));
 
         var collection = this.database.GetCollection<UserRegistration>(CollectionName);
         collection.EnsureIndex(x => x.Email, unique: true);
@@ -98,7 +100,7 @@ public sealed class LiteDbUserRegistrationRepository : IUserRegistrationReposito
         {
             var term = searchTerm.ToLowerInvariant();
             results = collection.FindAll()
-                .Where(x => 
+                .Where(x =>
                     x.Email.Contains(term, StringComparison.OrdinalIgnoreCase) ||
                     (x.DisplayName?.Contains(term, StringComparison.OrdinalIgnoreCase) == true));
         }

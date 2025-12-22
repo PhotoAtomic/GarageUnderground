@@ -24,7 +24,7 @@ else if (!isAuthorized)
     <div class="admin-container">
         <div class="access-denied">
             <h2>Accesso Negato</h2>
-            <p>Non hai i permessi per accedere a questa pagina. È richiesto il ruolo <strong>canAdmin</strong>.</p>
+            <p>Non hai i permessi per accedere a questa pagina. &Egrave; richiesto il ruolo <strong>canAdmin</strong>.</p>
             <a href="/dashboard" class="btn-back">Torna alla Dashboard</a>
         </div>
     </div>
@@ -99,7 +99,10 @@ else
                                                         @onclick="() => RemoveRole(user.Email, role)"
                                                         @onclick:stopPropagation="true"
                                                         title="Rimuovi ruolo">
-                                                    ×
+                                                    <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                        <line x1="18" y1="6" x2="6" y2="18"/>
+                                                        <line x1="6" y1="6" x2="18" y2="18"/>
+                                                    </svg>
                                                 </button>
                                             </span>
                                         }
@@ -182,12 +185,12 @@ else
                 Sei sicuro di voler eliminare completamente l'utente<br/>
                 <strong>@userToDelete.Email</strong> (@(userToDelete.DisplayName ?? "Nome non disponibile"))?<br/>
                 <br/>
-                <span class="warning-text">Questa azione eliminerà:</span><br/>
-                • La registrazione utente<br/>
-                • Tutti i ruoli assegnati<br/>
-                • Lo storico degli accessi<br/>
+                <span class="warning-text">Questa azione eliminer&agrave;:</span><br/>
+                &bull; La registrazione utente<br/>
+                &bull; Tutti i ruoli assegnati<br/>
+                &bull; Lo storico degli accessi<br/>
                 <br/>
-                <strong class="danger-text">Questa azione non può essere annullata!</strong>
+                <strong class="danger-text">Questa azione non pu&ograve; essere annullata!</strong>
             </p>
             <div class="modal-actions">
                 <button class="btn btn-cancel-modal" @onclick="HideDeleteConfirmation" disabled="@isDeleting">

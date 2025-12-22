@@ -10,10 +10,12 @@ public sealed class LiteDbUserRolesRepository : IUserRolesRepository
 {
     private const string CollectionName = "user_roles";
     private readonly ILiteDatabase database;
+    private readonly IDatabaseChangeNotifier changeNotifier;
 
-    public LiteDbUserRolesRepository(ILiteDatabase database)
+    public LiteDbUserRolesRepository(ILiteDatabase database, IDatabaseChangeNotifier changeNotifier)
     {
         this.database = database ?? throw new ArgumentNullException(nameof(database));
+        this.changeNotifier = changeNotifier ?? throw new ArgumentNullException(nameof(changeNotifier));
 
         var collection = this.database.GetCollection<UserRole>(CollectionName);
         collection.EnsureIndex(x => x.UserIdentifier);
@@ -48,8 +50,8 @@ public sealed class LiteDbUserRolesRepository : IUserRolesRepository
             }
 
             var normalizedValue = NormalizeIdentifier(value);
-            var userRole = collection.FindOne(x => 
-                x.UserIdentifier == normalizedValue && 
+            var userRole = collection.FindOne(x =>
+                x.UserIdentifier == normalizedValue &&
                 x.IdentifierType == identifierType);
 
             if (userRole != null)
@@ -96,7 +98,7 @@ public sealed class LiteDbUserRolesRepository : IUserRolesRepository
         };
 
         var collection = database.GetCollection<UserRole>(CollectionName);
-        
+
         var existing = collection.FindOne(x => x.UserIdentifier == normalizedRole.UserIdentifier);
         if (existing != null)
         {

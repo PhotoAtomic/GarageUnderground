@@ -68,7 +68,7 @@ else if (user?.IsAuthenticated == true)
             <!-- Row 3: Costo + Pagato -->
             <div class="costo-pagato-row">
                 <div class="form-group costo-group">
-                    <label for="costo">Costo (€)</label>
+                    <label for="costo">Costo (&euro;)</label>
                     <input type="number" 
                            id="costo"
                            class="form-input"
@@ -154,7 +154,7 @@ else if (user?.IsAuthenticated == true)
                 </div>
                 <p class="modal-message">
                     Sei sicuro di voler eliminare questo intervento?<br/>
-                    <strong>Questa azione non può essere annullata.</strong>
+                    <strong>Questa azione non pu&ograve; essere annullata.</strong>
                 </p>
                 <div class="modal-actions">
                     <button class="btn btn-cancel-modal" @onclick="HideDeleteConfirmation" disabled="@isDeleting">
