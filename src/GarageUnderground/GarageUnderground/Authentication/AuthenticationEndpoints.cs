@@ -31,6 +31,7 @@ public static class AuthenticationEndpoints
 
         // Mock login (only for mock auth)
         group.MapPost("/mock-login", MockLogin);
+        group.MapGet("/mock-login", MockLoginRedirect);
 
         // Logout - supporta sia POST che GET per permettere navigation diretta
         group.MapPost("/logout", Logout);
@@ -188,9 +189,40 @@ public static class AuthenticationEndpoints
             return Results.BadRequest("Mock authentication is not enabled");
         }
 
-        var displayName = string.IsNullOrWhiteSpace(request.DisplayName)
+        var redirectUrl = await SignInMockUserAsync(request.DisplayName, context, claimsEnrichmentService);
+        return Results.Ok(new { success = true, redirectUrl });
+    }
+
+    /// <summary>
+    /// Variante GET usata dalla pagina Blazor Server: dal circuito interattivo non si possono
+    /// scrivere cookie di risposta, quindi la pagina naviga qui e l'endpoint reindirizza.
+    /// </summary>
+    private static async Task<IResult> MockLoginRedirect(
+        HttpContext context,
+        IAuthenticationProviderService providerService,
+        IClaimsEnrichmentService claimsEnrichmentService,
+        string? displayName = null)
+    {
+        if (!providerService.IsMockAuthenticationActive)
+        {
+            return Results.BadRequest("Mock authentication is not enabled");
+        }
+
+        var redirectUrl = await SignInMockUserAsync(displayName, context, claimsEnrichmentService);
+        return Results.Redirect(redirectUrl);
+    }
+
+    /// <summary>
+    /// Imposta il cookie mock, firma l'utente e restituisce la pagina a cui mandarlo.
+    /// </summary>
+    private static async Task<string> SignInMockUserAsync(
+        string? requestedDisplayName,
+        HttpContext context,
+        IClaimsEnrichmentService claimsEnrichmentService)
+    {
+        var displayName = string.IsNullOrWhiteSpace(requestedDisplayName)
             ? "Mock User"
-            : request.DisplayName;
+            : requestedDisplayName;
 
         // Set mock auth cookie
         context.Response.Cookies.Append("mock_auth", displayName, new CookieOptions
@@ -227,8 +259,7 @@ public static class AuthenticationEndpoints
             .Where(c => c.Type == ClaimTypes.Role)
             .Any(c => c.Value.Equals("canLogin", StringComparison.OrdinalIgnoreCase));
 
-        var redirectUrl = hasLoginRole ? "/dashboard" : "/access-denied";
-        return Results.Ok(new { success = true, redirectUrl });
+        return hasLoginRole ? "/dashboard" : "/access-denied";
     }
 
     private static async Task<IResult> Logout(HttpContext context)

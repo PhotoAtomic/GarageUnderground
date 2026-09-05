@@ -419,3 +419,8 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Output dello strumento browser Playwright (test manuali)
+.playwright-mcp/
+*.png
+!src/**/wwwroot/**/*.png

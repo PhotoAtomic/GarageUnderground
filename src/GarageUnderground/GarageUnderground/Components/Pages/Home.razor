@@ -128,18 +128,14 @@
         isLoading = false;
     }
 
-    private async Task HandleMockLogin()
+    private void HandleMockLogin()
     {
+        // Come per i provider reali: il cookie lo imposta l'endpoint, non il circuito Blazor
         isLoading = true;
-        var success = await AuthStateProvider.MockLoginAsync(mockDisplayName);
-        if (success)
-        {
-            Navigation.NavigateTo("/dashboard");
-        }
-        else
-        {
-            isLoading = false;
-        }
+        var query = string.IsNullOrWhiteSpace(mockDisplayName)
+            ? string.Empty
+            : $"?displayName={Uri.EscapeDataString(mockDisplayName)}";
+        Navigation.NavigateTo($"/api/auth/mock-login{query}", forceLoad: true);
     }
 
     private void HandleProviderLogin(string scheme)
