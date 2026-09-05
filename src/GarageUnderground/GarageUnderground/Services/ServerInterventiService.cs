@@ -28,6 +28,24 @@ public sealed class ServerInterventiService : IInterventiService
         return interventi.Select(i => i.ToDto()).ToList();
     }
 
+    public Task<IReadOnlyList<TargaRiepilogo>> GetRiepilogoTargheAsync(int limit = 50)
+    {
+        return repository.GetRiepilogoTargheAsync(limit);
+    }
+
+    public async Task<InterventoDto?> SetPagatoAsync(Guid id, bool pagato)
+    {
+        var existing = await repository.GetByIdAsync(id);
+        if (existing is null)
+        {
+            return null;
+        }
+
+        var updated = existing with { Pagato = pagato };
+        var success = await repository.UpdateAsync(updated);
+        return success ? updated.ToDto() : null;
+    }
+
     public async Task<InterventoDto?> GetByIdAsync(Guid id)
     {
         var intervento = await repository.GetByIdAsync(id);

@@ -42,6 +42,29 @@ public sealed class LiteDbInterventiRepository : IInterventiRepository
         return Task.FromResult<IReadOnlyList<Intervento>>(interventi);
     }
 
+    public Task<IReadOnlyList<TargaRiepilogo>> GetRiepilogoTargheAsync(int limit, CancellationToken cancellationToken = default)
+    {
+        var collection = database.GetCollection<Intervento>(CollectionName);
+
+        // L'archivio di un'officina è di poche migliaia di righe: raggruppare in memoria è più
+        // semplice e robusto di un'aggregazione LiteDB.
+        var riepilogo = collection
+            .FindAll()
+            .GroupBy(x => x.Targa)
+            .Select(g => new TargaRiepilogo(
+                g.Key,
+                g.Count(),
+                g.Max(x => x.Data),
+                g.Sum(x => x.Costo),
+                g.Where(x => !x.Pagato).Sum(x => x.Costo)))
+            .OrderByDescending(r => r.UltimaData)
+            .ThenBy(r => r.Targa)
+            .Take(limit)
+            .ToList();
+
+        return Task.FromResult<IReadOnlyList<TargaRiepilogo>>(riepilogo);
+    }
+
     public Task<Intervento?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var collection = database.GetCollection<Intervento>(CollectionName);

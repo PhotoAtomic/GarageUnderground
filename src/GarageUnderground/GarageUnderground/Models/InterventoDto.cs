@@ -15,6 +15,11 @@ public record InterventoDto
 }
 
 /// <summary>
+/// Richiesta di cambio dello stato di pagamento.
+/// </summary>
+public record PagatoRequest(bool Pagato);
+
+/// <summary>
 /// DTO per la creazione di un nuovo intervento.
 /// </summary>
 public record NuovoInterventoDto

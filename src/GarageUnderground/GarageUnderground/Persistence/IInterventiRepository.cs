@@ -16,6 +16,12 @@ public interface IInterventiRepository
     Task<IReadOnlyList<Intervento>> GetByTargaAsync(string targa, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Riepilogo per targa di tutte le targhe in archivio, dalla più recente.
+    /// </summary>
+    /// <param name="limit">Numero massimo di targhe restituite.</param>
+    Task<IReadOnlyList<TargaRiepilogo>> GetRiepilogoTargheAsync(int limit, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Ottiene un intervento per il suo identificatore.
     /// </summary>
     /// <param name="id">Identificatore dell'intervento.</param>

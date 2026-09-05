@@ -15,6 +15,17 @@ public interface IInterventiService
     Task<IReadOnlyList<InterventoDto>> GetByTargaAsync(string targa);
 
     /// <summary>
+    /// Riepilogo delle targhe in archivio, dalla più recente.
+    /// </summary>
+    Task<IReadOnlyList<TargaRiepilogo>> GetRiepilogoTargheAsync(int limit = 50);
+
+    /// <summary>
+    /// Cambia solo lo stato di pagamento di un intervento.
+    /// </summary>
+    /// <returns>L'intervento aggiornato, null se non trovato.</returns>
+    Task<InterventoDto?> SetPagatoAsync(Guid id, bool pagato);
+
+    /// <summary>
     /// Ottiene un intervento per ID.
     /// </summary>
     /// <param name="id">ID dell'intervento.</param>

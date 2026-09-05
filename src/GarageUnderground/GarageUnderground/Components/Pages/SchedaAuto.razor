@@ -20,7 +20,7 @@ else if (user?.IsAuthenticated == true)
 {
     <section class="scheda-auto-page">
         <header class="page-header">
-            <button class="btn btn-back" @onclick="NavigateBack">
+            <button class="btn btn-back" @onclick="() => NavigateBack()">
                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M19 12H5"/>
                     <polyline points="12 19 5 12 12 5"/>
@@ -119,7 +119,7 @@ else if (user?.IsAuthenticated == true)
                 </button>
 
                 <div class="secondary-actions">
-                    <button class="btn btn-cancel" @onclick="NavigateBack" disabled="@(isSaving || isDeleting)">
+                    <button class="btn btn-cancel" @onclick="() => NavigateBack()" disabled="@(isSaving || isDeleting)">
                         Annulla
                     </button>
                     @if (IsEditMode)
@@ -294,7 +294,7 @@ else if (user?.IsAuthenticated == true)
 
             if (result is not null)
             {
-                NavigateBack();
+                NavigateBack("auto-salvata");
             }
             else
             {
@@ -324,7 +324,7 @@ else if (user?.IsAuthenticated == true)
         {
             if (await AutoService.DeleteAsync(Id!.Value))
             {
-                NavigateBack();
+                NavigateBack("auto-eliminata");
             }
             else
             {
@@ -343,9 +343,15 @@ else if (user?.IsAuthenticated == true)
         }
     }
 
-    private void NavigateBack()
+    private void NavigateBack(string? esito = null)
     {
-        Navigation.NavigateTo($"/dashboard?targa={Uri.EscapeDataString(targa)}");
+        var url = $"/dashboard?targa={Uri.EscapeDataString(targa)}";
+        if (esito is not null)
+        {
+            url += $"&esito={esito}";
+        }
+
+        Navigation.NavigateTo(url);
     }
 }
 

@@ -1,5 +1,7 @@
 <Solution>
+  <Folder Name="/GarageUnderground/" />
   <Project Path="GarageUnderground.AppHost/GarageUnderground.AppHost.csproj" />
   <Project Path="GarageUnderground.ServiceDefaults/GarageUnderground.ServiceDefaults.csproj" />
+  <Project Path="GarageUnderground.Tests/GarageUnderground.Tests.csproj" />
   <Project Path="GarageUnderground/GarageUnderground/GarageUnderground.csproj" />
 </Solution>

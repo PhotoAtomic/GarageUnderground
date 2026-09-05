@@ -7,6 +7,7 @@
 @inject IInterventiService InterventiService
 @inject IAutoService AutoService
 @rendermode InteractiveServer
+@implements IDisposable
 
 <PageTitle>Dashboard - GarageUnderground</PageTitle>
 
@@ -19,6 +20,16 @@
 else if (user?.IsAuthenticated == true)
 {
     <section class="dashboard">
+        @if (!string.IsNullOrEmpty(toast))
+        {
+            <div class="toast" role="status">
+                <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                    <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                <span>@toast</span>
+            </div>
+        }
+
         <div class="search-section">
             <div class="search-container">
                 <input type="text" 
@@ -48,7 +59,30 @@ else if (user?.IsAuthenticated == true)
             </div>
         </div>
 
-        @if (hasSearched)
+        @if (!hasSearched)
+        {
+            var suggerimenti = Suggerimenti.ToList();
+            if (suggerimenti.Count > 0)
+            {
+                <div class="targhe-section">
+                    <h2 class="targhe-title">@(string.IsNullOrWhiteSpace(searchTarga) ? "Targhe recenti" : "Targhe in archivio")</h2>
+                    <div class="targhe-list">
+                        @foreach (var r in suggerimenti)
+                        {
+                            <button class="targa-chip" @onclick="() => SelectTarga(r.Targa)">
+                                <span class="targa-chip-targa">@r.Targa</span>
+                                <span class="targa-chip-info">@r.NumeroInterventi @(r.NumeroInterventi == 1 ? "intervento" : "interventi") &middot; @r.UltimaData.ToString("dd/MM/yyyy")</span>
+                                @if (r.TotaleDaPagare > 0)
+                                {
+                                    <span class="targa-chip-debito">&euro; @r.TotaleDaPagare.ToString("N2") da incassare</span>
+                                }
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+        }
+        else
         {
             <div class="interventi-section">
                 @if (auto is not null)
@@ -114,6 +148,32 @@ else if (user?.IsAuthenticated == true)
                     </div>
                 }
 
+                @if (interventi.Count > 0)
+                {
+                    <div class="riepilogo-card">
+                        <div class="riepilogo-item">
+                            <span class="riepilogo-label">Interventi</span>
+                            <span class="riepilogo-value">@interventi.Count</span>
+                        </div>
+                        <div class="riepilogo-item">
+                            <span class="riepilogo-label">Totale</span>
+                            <span class="riepilogo-value">&euro; @TotaleCosto.ToString("N2")</span>
+                        </div>
+                        <div class="riepilogo-item @(TotaleDaPagare > 0 ? "da-incassare" : "")">
+                            <span class="riepilogo-label">Da incassare</span>
+                            <span class="riepilogo-value">&euro; @TotaleDaPagare.ToString("N2")</span>
+                        </div>
+                        <a class="btn-csv" href="@CsvUrl" target="_blank" rel="noopener" title="Scarica gli interventi in CSV">
+                            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            <span>CSV</span>
+                        </a>
+                    </div>
+                }
+
                 <div class="nuovo-intervento-card" @onclick="NavigateToNuovoIntervento">
                     <span class="plus-icon">+</span>
                     <span class="nuovo-intervento-text">Nuovo Intervento</span>
@@ -123,6 +183,22 @@ else if (user?.IsAuthenticated == true)
                 {
                     <div class="no-results">
                         <p>Nessun intervento trovato per la targa <strong>@currentTarga</strong></p>
+                        @{
+                            var simili = Suggerimenti.Where(r => r.Targa != currentTarga).ToList();
+                        }
+                        @if (simili.Count > 0)
+                        {
+                            <p class="no-results-hint">Targhe simili in archivio:</p>
+                            <div class="targhe-list">
+                                @foreach (var r in simili)
+                                {
+                                    <button class="targa-chip" @onclick="() => SelectTarga(r.Targa)">
+                                        <span class="targa-chip-targa">@r.Targa</span>
+                                        <span class="targa-chip-info">@r.NumeroInterventi @(r.NumeroInterventi == 1 ? "intervento" : "interventi") &middot; @r.UltimaData.ToString("dd/MM/yyyy")</span>
+                                    </button>
+                                }
+                            </div>
+                        }
                     </div>
                 }
                 else
@@ -144,13 +220,19 @@ else if (user?.IsAuthenticated == true)
                                 </div>
                                 <p class="intervento-descrizione">@intervento.Descrizione</p>
                                 <div class="intervento-footer">
-                                    <span class="intervento-stato @(intervento.Pagato ? "stato-pagato" : "stato-non-pagato")">
-                                        @if (intervento.Pagato)
+                                    <button class="intervento-stato @(intervento.Pagato ? "stato-pagato" : "stato-non-pagato")"
+                                            @onclick="() => TogglePagato(intervento)"
+                                            disabled="@(togglingId == intervento.Id)"
+                                            title="@(intervento.Pagato ? "Segna come da pagare" : "Segna come pagato")">
+                                        @if (togglingId == intervento.Id)
+                                        {
+                                            <span class="btn-spinner btn-spinner-small"></span>
+                                        }
+                                        else if (intervento.Pagato)
                                         {
                                             <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
                                                 <polyline points="20 6 9 17 4 12"/>
                                             </svg>
-                                            <span>Pagato</span>
                                         }
                                         else
                                         {
@@ -159,9 +241,9 @@ else if (user?.IsAuthenticated == true)
                                                 <line x1="12" y1="8" x2="12" y2="12"/>
                                                 <line x1="12" y1="16" x2="12.01" y2="16"/>
                                             </svg>
-                                            <span>Da pagare</span>
                                         }
-                                    </span>
+                                        <span>@(intervento.Pagato ? "Pagato" : "Da pagare")</span>
+                                    </button>
                                     <span class="intervento-costo">&euro; @intervento.Costo.ToString("N2")</span>
                                 </div>
                             </div>
@@ -177,6 +259,16 @@ else if (user?.IsAuthenticated == true)
     [SupplyParameterFromQuery]
     public string? Targa { get; set; }
 
+    /// <summary>
+    /// Esito dell'operazione appena conclusa in un'altra pagina, mostrato come conferma.
+    /// </summary>
+    [SupplyParameterFromQuery]
+    public string? Esito { get; set; }
+
+    private const int MaxSuggerimenti = 8;
+    private const int MaxTargheInArchivio = 200;
+    private static readonly TimeSpan ToastDuration = TimeSpan.FromSeconds(3);
+
     private UserInfo? user;
     private bool isLoading = true;
     private bool isSearching = false;
@@ -186,6 +278,29 @@ else if (user?.IsAuthenticated == true)
     private string currentTarga = string.Empty;
     private List<InterventoDto> interventi = [];
     private AutoDto? auto;
+    private List<TargaRiepilogo> riepilogoTarghe = [];
+    private Guid? togglingId;
+    private string? toast;
+    private CancellationTokenSource? toastCts;
+
+    private decimal TotaleCosto => interventi.Sum(i => i.Costo);
+    private decimal TotaleDaPagare => interventi.Where(i => !i.Pagato).Sum(i => i.Costo);
+    private string CsvUrl => $"/api/interventi/targa/{Uri.EscapeDataString(currentTarga)}/csv";
+
+    /// <summary>
+    /// Targhe in archivio che contengono quello che si sta digitando (tutte, se il campo è vuoto).
+    /// </summary>
+    private IEnumerable<TargaRiepilogo> Suggerimenti
+    {
+        get
+        {
+            var filtro = TargaNormalizer.Normalize(searchTarga);
+            var fonte = filtro.Length == 0
+                ? riepilogoTarghe
+                : riepilogoTarghe.Where(r => r.Targa.Contains(filtro, StringComparison.Ordinal));
+            return fonte.Take(MaxSuggerimenti);
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -205,10 +320,12 @@ else if (user?.IsAuthenticated == true)
             return;
         }
 
+        var riepilogoTask = InterventiService.GetRiepilogoTargheAsync(MaxTargheInArchivio);
+
         // Se c'è una targa nel query parameter, esegui automaticamente la ricerca
         if (!string.IsNullOrWhiteSpace(Targa))
         {
-            searchTarga = Targa.Trim().ToUpperInvariant();
+            searchTarga = TargaNormalizer.Normalize(Targa);
             isLoading = false;
             await SearchInterventi();
         }
@@ -216,6 +333,81 @@ else if (user?.IsAuthenticated == true)
         {
             isLoading = false;
         }
+
+        riepilogoTarghe = (await riepilogoTask).ToList();
+
+        var messaggio = Esito switch
+        {
+            "salvato" => "Intervento salvato",
+            "eliminato" => "Intervento eliminato",
+            "auto-salvata" => "Scheda auto salvata",
+            "auto-eliminata" => "Scheda auto eliminata",
+            _ => null
+        };
+        if (messaggio is not null)
+        {
+            _ = ShowToastAsync(messaggio);
+        }
+    }
+
+    private async Task SelectTarga(string targa)
+    {
+        searchTarga = targa;
+        await SearchInterventi();
+    }
+
+    private async Task TogglePagato(InterventoDto intervento)
+    {
+        togglingId = intervento.Id;
+
+        try
+        {
+            var aggiornato = await InterventiService.SetPagatoAsync(intervento.Id, !intervento.Pagato);
+            if (aggiornato is null)
+            {
+                _ = ShowToastAsync("Aggiornamento non riuscito. Riprova.");
+                return;
+            }
+
+            var indice = interventi.FindIndex(i => i.Id == intervento.Id);
+            if (indice >= 0)
+            {
+                interventi[indice] = aggiornato;
+            }
+
+            _ = ShowToastAsync(aggiornato.Pagato ? "Segnato come pagato" : "Segnato come da pagare");
+        }
+        finally
+        {
+            togglingId = null;
+        }
+    }
+
+    private async Task ShowToastAsync(string message)
+    {
+        toastCts?.Cancel();
+        toastCts = new CancellationTokenSource();
+        var token = toastCts.Token;
+
+        toast = message;
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            await Task.Delay(ToastDuration, token);
+            toast = null;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (TaskCanceledException)
+        {
+            // Sostituito da un messaggio più recente
+        }
+    }
+
+    public void Dispose()
+    {
+        toastCts?.Cancel();
+        toastCts?.Dispose();
     }
 
     private void OnSearchInputChanged()
@@ -246,7 +438,8 @@ else if (user?.IsAuthenticated == true)
         }
 
         isSearching = true;
-        currentTarga = searchTarga.Trim().ToUpperInvariant();
+        currentTarga = TargaNormalizer.Normalize(searchTarga);
+        searchTarga = currentTarga;
         
         try
         {
@@ -431,6 +624,155 @@ else if (user?.IsAuthenticated == true)
         color: var(--color-text);
     }
 
+    /* Conferme */
+    .toast {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.9rem 1.25rem;
+        background-color: rgba(38, 176, 80, 0.2);
+        border: 2px solid #26b050;
+        border-radius: 0.75rem;
+        color: #26b050;
+        font-size: 1.05rem;
+        font-weight: 500;
+    }
+
+    /* Targhe recenti e suggerimenti */
+    .targhe-section {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .targhe-title {
+        font-size: 1rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--color-text-muted);
+        margin: 0;
+    }
+
+    .targhe-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 0.75rem;
+    }
+
+    .targa-chip {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.2rem;
+        padding: 0.9rem 1.1rem;
+        background-color: var(--color-surface);
+        border: 2px solid var(--color-primary);
+        border-radius: 0.75rem;
+        color: var(--color-text);
+        text-align: left;
+        cursor: pointer;
+        transition: border-color 0.2s, transform 0.1s;
+        min-height: 64px;
+    }
+
+    .targa-chip:hover {
+        border-color: var(--color-accent);
+    }
+
+    .targa-chip:active {
+        transform: scale(0.98);
+    }
+
+    .targa-chip-targa {
+        font-size: 1.2rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+    }
+
+    .targa-chip-info {
+        font-size: 0.9rem;
+        color: var(--color-text-muted);
+    }
+
+    .targa-chip-debito {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--color-accent);
+    }
+
+    /* Riepilogo della targa cercata */
+    .riepilogo-card {
+        display: flex;
+        align-items: stretch;
+        gap: 0.5rem;
+        padding: 0.75rem;
+        background-color: var(--color-surface);
+        border-radius: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .riepilogo-item {
+        flex: 1;
+        min-width: 100px;
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+        padding: 0.5rem 0.75rem;
+        border-radius: 0.5rem;
+    }
+
+    .riepilogo-item.da-incassare {
+        background-color: rgba(233, 69, 96, 0.15);
+    }
+
+    .riepilogo-item.da-incassare .riepilogo-value {
+        color: var(--color-accent);
+    }
+
+    .riepilogo-label {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--color-text-muted);
+    }
+
+    .riepilogo-value {
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: var(--color-text);
+        white-space: nowrap;
+    }
+
+    .btn-csv {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        padding: 0.5rem 1rem;
+        background-color: var(--color-primary);
+        color: var(--color-text);
+        border-radius: 0.5rem;
+        font-weight: 600;
+        text-decoration: none;
+        align-self: center;
+    }
+
+    .btn-csv:hover {
+        background-color: var(--color-accent);
+        text-decoration: none;
+    }
+
+    .btn-spinner-small {
+        width: 1rem;
+        height: 1rem;
+    }
+
+    .no-results-hint {
+        margin-top: 1rem;
+        font-size: 0.95rem;
+    }
+
     /* Scheda auto: stessa card degli interventi, bordo azzurro */
     .nuova-auto-card {
         display: flex;
@@ -594,14 +936,32 @@ else if (user?.IsAuthenticated == true)
 
     .intervento-stato {
         padding: 0.5rem 1rem;
+        border: none;
         border-radius: 2rem;
         font-size: 0.95rem;
         font-weight: 500;
+        font-family: inherit;
         display: flex;
         align-items: center;
         gap: 0.4rem;
         flex-shrink: 0;
         white-space: nowrap;
+        cursor: pointer;
+        min-height: 44px;
+        transition: transform 0.1s, filter 0.2s;
+    }
+
+    .intervento-stato:hover:not(:disabled) {
+        filter: brightness(1.2);
+    }
+
+    .intervento-stato:active:not(:disabled) {
+        transform: scale(0.96);
+    }
+
+    .intervento-stato:disabled {
+        cursor: wait;
+        opacity: 0.7;
     }
 
     .stato-pagato {

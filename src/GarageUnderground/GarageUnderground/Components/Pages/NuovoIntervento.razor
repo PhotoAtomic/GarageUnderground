@@ -282,7 +282,7 @@ else if (user?.IsAuthenticated == true)
 
             if (result is not null)
             {
-                Navigation.NavigateTo($"/dashboard?targa={Uri.EscapeDataString(targa)}");
+                Navigation.NavigateTo($"/dashboard?targa={Uri.EscapeDataString(targa)}&esito=salvato");
             }
             else
             {
@@ -320,7 +320,7 @@ else if (user?.IsAuthenticated == true)
 
             if (success)
             {
-                Navigation.NavigateTo($"/dashboard?targa={Uri.EscapeDataString(targa)}");
+                Navigation.NavigateTo($"/dashboard?targa={Uri.EscapeDataString(targa)}&esito=eliminato");
             }
             else
             {

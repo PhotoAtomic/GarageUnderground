@@ -36,7 +36,65 @@ public static class InterventiEndpoints
             .WithName("DeleteIntervento")
             .WithDescription("Elimina un intervento");
 
+        group.MapGet("/targhe", GetRiepilogoTargheAsync)
+            .WithName("GetRiepilogoTarghe")
+            .WithDescription("Riepilogo delle targhe in archivio, dalla più recente");
+
+        group.MapPatch("/{id:guid}/pagato", SetPagatoAsync)
+            .WithName("SetInterventoPagato")
+            .WithDescription("Cambia lo stato di pagamento di un intervento");
+
+        group.MapGet("/targa/{targa}/csv", ExportCsvAsync)
+            .WithName("ExportInterventiCsv")
+            .WithDescription("Esporta in CSV gli interventi di una targa");
+
         return endpoints;
+    }
+
+    private static async Task<IResult> GetRiepilogoTargheAsync(
+        IInterventiRepository repository,
+        CancellationToken cancellationToken,
+        int limit = 50)
+    {
+        var riepilogo = await repository.GetRiepilogoTargheAsync(Math.Clamp(limit, 1, 500), cancellationToken);
+        return Results.Ok(riepilogo);
+    }
+
+    private static async Task<IResult> SetPagatoAsync(
+        Guid id,
+        PagatoRequest request,
+        IInterventiRepository repository,
+        CancellationToken cancellationToken)
+    {
+        var existing = await repository.GetByIdAsync(id, cancellationToken);
+        if (existing is null)
+        {
+            return Results.NotFound();
+        }
+
+        var updated = existing with { Pagato = request.Pagato };
+        var success = await repository.UpdateAsync(updated, cancellationToken);
+
+        return success
+            ? Results.Ok(updated.ToDto())
+            : Results.Problem("Errore durante l'aggiornamento");
+    }
+
+    private static async Task<IResult> ExportCsvAsync(
+        string targa,
+        IInterventiRepository repository,
+        CancellationToken cancellationToken)
+    {
+        var interventi = await repository.GetByTargaAsync(targa, cancellationToken);
+        var csv = InterventiCsv.Build(interventi);
+        var fileName = $"interventi-{TargaNormalizer.Normalize(targa)}.csv";
+
+        // BOM UTF-8 così Excel riconosce gli accenti
+        var bytes = System.Text.Encoding.UTF8.GetPreamble()
+            .Concat(System.Text.Encoding.UTF8.GetBytes(csv))
+            .ToArray();
+
+        return Results.File(bytes, "text/csv; charset=utf-8", fileName);
     }
 
     private static async Task<IResult> GetByTargaAsync(

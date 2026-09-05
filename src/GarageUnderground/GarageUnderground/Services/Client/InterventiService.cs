@@ -34,6 +34,34 @@ public sealed class InterventiService : IInterventiService
         }
     }
 
+    public async Task<IReadOnlyList<TargaRiepilogo>> GetRiepilogoTargheAsync(int limit = 50)
+    {
+        try
+        {
+            var response = await httpClient.GetFromJsonAsync<List<TargaRiepilogo>>($"/api/interventi/targhe?limit={limit}");
+            return response ?? [];
+        }
+        catch (HttpRequestException)
+        {
+            return [];
+        }
+    }
+
+    public async Task<InterventoDto?> SetPagatoAsync(Guid id, bool pagato)
+    {
+        try
+        {
+            var response = await httpClient.PatchAsJsonAsync($"/api/interventi/{id}/pagato", new PagatoRequest(pagato));
+            return response.IsSuccessStatusCode
+                ? await response.Content.ReadFromJsonAsync<InterventoDto>()
+                : null;
+        }
+        catch (HttpRequestException)
+        {
+            return null;
+        }
+    }
+
     public async Task<InterventoDto?> GetByIdAsync(Guid id)
     {
         try
