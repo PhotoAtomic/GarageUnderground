@@ -5,6 +5,7 @@
 @inject ApiAuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Navigation
 @inject IInterventiService InterventiService
+@inject IAutoService AutoService
 @rendermode InteractiveServer
 
 <PageTitle>Dashboard - GarageUnderground</PageTitle>
@@ -50,6 +51,69 @@ else if (user?.IsAuthenticated == true)
         @if (hasSearched)
         {
             <div class="interventi-section">
+                @if (auto is not null)
+                {
+                    <div class="auto-card">
+                        <div class="auto-header">
+                            <div class="auto-title">
+                                <span class="auto-targa">@auto.Targa</span>
+                                @if (!string.IsNullOrEmpty(auto.Descrizione))
+                                {
+                                    <span class="auto-modello">@auto.Descrizione</span>
+                                }
+                            </div>
+                            <button class="btn-edit" @onclick="NavigateToEditAuto" title="Modifica scheda auto">
+                                <svg class="icon-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <dl class="auto-details">
+                            @if (!string.IsNullOrEmpty(auto.Proprietario))
+                            {
+                                <div class="auto-detail">
+                                    <dt>Proprietario</dt>
+                                    <dd>
+                                        @auto.Proprietario
+                                        @if (!string.IsNullOrEmpty(auto.Telefono))
+                                        {
+                                            <a class="auto-telefono" href="tel:@auto.Telefono">@auto.Telefono</a>
+                                        }
+                                    </dd>
+                                </div>
+                            }
+                            @if (auto.Anno is not null)
+                            {
+                                <div class="auto-detail"><dt>Anno</dt><dd>@auto.Anno</dd></div>
+                            }
+                            @if (!string.IsNullOrEmpty(auto.Colore))
+                            {
+                                <div class="auto-detail"><dt>Colore</dt><dd>@auto.Colore</dd></div>
+                            }
+                            @if (auto.Cilindrata is not null)
+                            {
+                                <div class="auto-detail"><dt>Cilindrata</dt><dd>@auto.Cilindrata cc</dd></div>
+                            }
+                            @if (!string.IsNullOrEmpty(auto.Alimentazione))
+                            {
+                                <div class="auto-detail"><dt>Alimentazione</dt><dd>@auto.Alimentazione</dd></div>
+                            }
+                            @if (!string.IsNullOrEmpty(auto.Note))
+                            {
+                                <div class="auto-detail auto-note"><dt>Note</dt><dd>@auto.Note</dd></div>
+                            }
+                        </dl>
+                    </div>
+                }
+                else
+                {
+                    <div class="nuova-auto-card" @onclick="NavigateToNuovaAuto">
+                        <span class="plus-icon plus-icon-auto">+</span>
+                        <span class="nuovo-intervento-text">Aggiungi Auto</span>
+                    </div>
+                }
+
                 <div class="nuovo-intervento-card" @onclick="NavigateToNuovoIntervento">
                     <span class="plus-icon">+</span>
                     <span class="nuovo-intervento-text">Nuovo Intervento</span>
@@ -121,6 +185,7 @@ else if (user?.IsAuthenticated == true)
     private string searchTarga = string.Empty;
     private string currentTarga = string.Empty;
     private List<InterventoDto> interventi = [];
+    private AutoDto? auto;
 
     protected override async Task OnInitializedAsync()
     {
@@ -140,7 +205,7 @@ else if (user?.IsAuthenticated == true)
             return;
         }
 
-        // Se c'è una targa nel query parameter, esegui automaticamente la ricerca
+        // Se c'Ã¨ una targa nel query parameter, esegui automaticamente la ricerca
         if (!string.IsNullOrWhiteSpace(Targa))
         {
             searchTarga = Targa.Trim().ToUpperInvariant();
@@ -159,6 +224,7 @@ else if (user?.IsAuthenticated == true)
         if (hasSearched)
         {
             interventi.Clear();
+            auto = null;
             hasSearched = false;
             showSearchButton = true;
         }
@@ -184,8 +250,12 @@ else if (user?.IsAuthenticated == true)
         
         try
         {
-            var results = await InterventiService.GetByTargaAsync(currentTarga);
-            interventi = results.ToList();
+            var interventiTask = InterventiService.GetByTargaAsync(currentTarga);
+            var autoTask = AutoService.GetByTargaAsync(currentTarga);
+            await Task.WhenAll(interventiTask, autoTask);
+
+            interventi = interventiTask.Result.ToList();
+            auto = autoTask.Result;
             hasSearched = true;
             
             // Hide search button only if results were found
@@ -205,6 +275,19 @@ else if (user?.IsAuthenticated == true)
     private void NavigateToEditIntervento(Guid interventoId)
     {
         Navigation.NavigateTo($"/intervento/modifica/{interventoId}");
+    }
+
+    private void NavigateToNuovaAuto()
+    {
+        Navigation.NavigateTo($"/auto/nuova?targa={Uri.EscapeDataString(currentTarga)}");
+    }
+
+    private void NavigateToEditAuto()
+    {
+        if (auto is not null)
+        {
+            Navigation.NavigateTo($"/auto/modifica/{auto.Id}");
+        }
     }
 }
 
@@ -346,6 +429,104 @@ else if (user?.IsAuthenticated == true)
         font-size: 1.5rem;
         font-weight: 600;
         color: var(--color-text);
+    }
+
+    /* Scheda auto: stessa card degli interventi, bordo azzurro */
+    .nuova-auto-card {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        padding: 2rem;
+        background-color: var(--color-surface);
+        border: 3px dashed var(--color-info);
+        border-radius: 1rem;
+        cursor: pointer;
+        transition: background-color 0.2s, transform 0.1s;
+        min-height: 100px;
+    }
+
+    .nuova-auto-card:hover {
+        background-color: var(--color-primary);
+    }
+
+    .nuova-auto-card:active {
+        transform: scale(0.98);
+    }
+
+    .plus-icon-auto {
+        color: var(--color-info);
+    }
+
+    .auto-card {
+        padding: 1rem 1.25rem;
+        background-color: var(--color-surface);
+        border-radius: 1rem;
+        border-left: 5px solid var(--color-info);
+    }
+
+    .auto-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .auto-title {
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+        min-width: 0;
+    }
+
+    .auto-targa {
+        font-size: 1.25rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        color: var(--color-text);
+    }
+
+    .auto-modello {
+        font-size: 1.1rem;
+        color: var(--color-text);
+        overflow-wrap: anywhere;
+    }
+
+    .auto-details {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 0.75rem 1.25rem;
+        margin: 0;
+    }
+
+    .auto-detail dt {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--color-text-muted);
+        margin-bottom: 0.15rem;
+    }
+
+    .auto-detail dd {
+        margin: 0;
+        font-size: 1.05rem;
+        color: var(--color-text);
+        overflow-wrap: anywhere;
+    }
+
+    .auto-note {
+        grid-column: 1 / -1;
+    }
+
+    .auto-note dd {
+        white-space: pre-wrap;
+    }
+
+    .auto-telefono {
+        display: block;
+        font-size: 0.95rem;
+        color: var(--color-info);
     }
 
     .no-results {
