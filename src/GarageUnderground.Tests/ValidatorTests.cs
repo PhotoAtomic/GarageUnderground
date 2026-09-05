@@ -28,6 +28,7 @@ public class InterventoValidatorTests
         // Regressione: i sorgenti erano in Windows-1252 e "è" compilava come U+FFFD
         var errore = InterventoValidator.Validate("AB123CD", "", 0);
 
+        Assert.NotNull(errore);
         Assert.Equal("La descrizione è obbligatoria", errore);
         Assert.DoesNotContain('�', errore);
     }
