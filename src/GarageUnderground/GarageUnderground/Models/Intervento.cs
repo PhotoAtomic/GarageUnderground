@@ -11,12 +11,12 @@ public record Intervento
     public Guid Id { get; init; } = Guid.NewGuid();
 
     /// <summary>
-    /// Targa del veicolo su cui è stato eseguito l'intervento.
+    /// Targa del veicolo su cui Ã¨ stato eseguito l'intervento.
     /// </summary>
     public required string Targa { get; init; }
 
     /// <summary>
-    /// Data in cui è stato eseguito l'intervento.
+    /// Data in cui Ã¨ stato eseguito l'intervento.
     /// </summary>
     public required DateOnly Data { get; init; }
 
@@ -31,7 +31,7 @@ public record Intervento
     public required decimal Costo { get; init; }
 
     /// <summary>
-    /// Indica se l'intervento è già stato pagato.
+    /// Indica se l'intervento Ã¨ giÃ  stato pagato.
     /// </summary>
     public required bool Pagato { get; init; }
 

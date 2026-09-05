@@ -11,7 +11,10 @@ public static class DiagnosticEndpoints
 {
     public static void MapDiagnosticEndpoints(this IEndpointRouteBuilder routes)
     {
-        var group = routes.MapGroup("/api/diagnostics");
+        // Espone percorsi, permessi e scrive file di prova nella cartella del database:
+        // riservato agli amministratori.
+        var group = routes.MapGroup("/api/diagnostics")
+            .RequireAuthorization("CanAdmin");
 
         group.MapGet("/storage", GetStorageDiagnostics)
             .WithName("GetStorageDiagnostics");

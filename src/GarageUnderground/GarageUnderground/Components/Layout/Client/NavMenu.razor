@@ -6,6 +6,7 @@
 @inject ApiAuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
+@inject ILogger<NavMenu> Logger
 
 <header class="app-header">
     <div class="header-left">
@@ -160,7 +161,7 @@
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"PWA install error: {ex.Message}");
+                Logger.LogDebug(ex, "PWA install handler non disponibile");
                 canInstall = false;
             }
         }
@@ -173,10 +174,24 @@
         InvokeAsync(StateHasChanged);
     }
 
-    private async void OnAuthenticationStateChanged(Task<AuthenticationState> task)
+    private void OnAuthenticationStateChanged(Task<AuthenticationState> task)
     {
-        await RefreshUserAsync();
-        await InvokeAsync(StateHasChanged);
+        // Un'eccezione non gestita in un handler async void farebbe cadere il circuito Blazor:
+        // il lavoro asincrono è incapsulato e loggato.
+        _ = RefreshUserAndRenderAsync();
+    }
+
+    private async Task RefreshUserAndRenderAsync()
+    {
+        try
+        {
+            await RefreshUserAsync();
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Aggiornamento dello stato utente fallito");
+        }
     }
 
     private async Task RefreshUserAsync()
@@ -213,19 +228,12 @@
 
     private void ToggleMenu()
     {
-        Console.WriteLine($"ToggleMenu called. Current state: {menuOpen}, New state: {!menuOpen}");
         menuOpen = !menuOpen;
-        StateHasChanged();
     }
 
     private void CloseMenu()
     {
-        if (menuOpen)
-        {
-            Console.WriteLine("CloseMenu called");
-            menuOpen = false;
-            StateHasChanged();
-        }
+        menuOpen = false;
     }
 
     private async Task HandleInstall()
@@ -241,7 +249,7 @@
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Install error: {ex.Message}");
+            Logger.LogWarning(ex, "Installazione PWA fallita");
         }
     }
 

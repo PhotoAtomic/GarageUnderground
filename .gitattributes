@@ -1,0 +1,11 @@
+# Sorgenti sempre come testo UTF-8: evita che un editor li risalvi in Windows-1252
+*.cs     text working-tree-encoding=UTF-8
+*.razor  text working-tree-encoding=UTF-8
+*.css    text working-tree-encoding=UTF-8
+*.json   text working-tree-encoding=UTF-8
+*.md     text working-tree-encoding=UTF-8
+
+# File binari
+*.db     binary
+*.png    binary
+*.ico    binary

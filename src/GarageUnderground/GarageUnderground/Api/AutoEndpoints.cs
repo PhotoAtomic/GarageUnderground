@@ -4,81 +4,81 @@ using GarageUnderground.Persistence;
 namespace GarageUnderground.Api;
 
 /// <summary>
-/// Endpoints API per la gestione degli interventi.
+/// Endpoints API per l'anagrafica delle auto.
 /// </summary>
-public static class InterventiEndpoints
+public static class AutoEndpoints
 {
-    /// <summary>
-    /// Mappa gli endpoints per gli interventi.
-    /// </summary>
-    public static IEndpointRouteBuilder MapInterventiEndpoints(this IEndpointRouteBuilder endpoints)
+    public static IEndpointRouteBuilder MapAutoEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        var group = endpoints.MapGroup("/api/interventi")
+        var group = endpoints.MapGroup("/api/auto")
             .RequireAuthorization();
 
         group.MapGet("/targa/{targa}", GetByTargaAsync)
-            .WithName("GetInterventiByTarga")
-            .WithDescription("Ottiene tutti gli interventi per una specifica targa");
+            .WithName("GetAutoByTarga")
+            .WithDescription("Ottiene la scheda auto per targa");
 
         group.MapGet("/{id:guid}", GetByIdAsync)
-            .WithName("GetInterventoById")
-            .WithDescription("Ottiene un intervento per ID");
+            .WithName("GetAutoById");
 
         group.MapPost("/", CreateAsync)
-            .WithName("CreateIntervento")
-            .WithDescription("Crea un nuovo intervento");
+            .WithName("CreateAuto")
+            .WithDescription("Crea una scheda auto");
 
         group.MapPut("/{id:guid}", UpdateAsync)
-            .WithName("UpdateIntervento")
-            .WithDescription("Aggiorna un intervento esistente");
+            .WithName("UpdateAuto")
+            .WithDescription("Aggiorna una scheda auto");
 
         group.MapDelete("/{id:guid}", DeleteAsync)
-            .WithName("DeleteIntervento")
-            .WithDescription("Elimina un intervento");
+            .WithName("DeleteAuto");
 
         return endpoints;
     }
 
     private static async Task<IResult> GetByTargaAsync(
         string targa,
-        IInterventiRepository repository,
+        IAutoRepository repository,
         CancellationToken cancellationToken)
     {
-        var interventi = await repository.GetByTargaAsync(targa, cancellationToken);
-        return Results.Ok(interventi.Select(i => i.ToDto()).ToList());
+        var auto = await repository.GetByTargaAsync(targa, cancellationToken);
+        return auto is null ? Results.NotFound() : Results.Ok(auto.ToDto());
     }
 
     private static async Task<IResult> GetByIdAsync(
         Guid id,
-        IInterventiRepository repository,
+        IAutoRepository repository,
         CancellationToken cancellationToken)
     {
-        var intervento = await repository.GetByIdAsync(id, cancellationToken);
-        return intervento is null ? Results.NotFound() : Results.Ok(intervento.ToDto());
+        var auto = await repository.GetByIdAsync(id, cancellationToken);
+        return auto is null ? Results.NotFound() : Results.Ok(auto.ToDto());
     }
 
     private static async Task<IResult> CreateAsync(
-        NuovoInterventoDto request,
-        IInterventiRepository repository,
+        SalvaAutoDto request,
+        IAutoRepository repository,
         CancellationToken cancellationToken)
     {
-        var error = InterventoValidator.Validate(request);
+        var error = AutoValidator.Validate(request);
         if (error is not null)
         {
             return Results.BadRequest(error);
         }
 
         var created = await repository.CreateAsync(request.ToNewEntity(), cancellationToken);
-        return Results.Created($"/api/interventi/{created.Id}", created.ToDto());
+        if (created is null)
+        {
+            return Results.Conflict("Esiste già una scheda per questa targa");
+        }
+
+        return Results.Created($"/api/auto/{created.Id}", created.ToDto());
     }
 
     private static async Task<IResult> UpdateAsync(
         Guid id,
-        NuovoInterventoDto request,
-        IInterventiRepository repository,
+        SalvaAutoDto request,
+        IAutoRepository repository,
         CancellationToken cancellationToken)
     {
-        var error = InterventoValidator.Validate(request);
+        var error = AutoValidator.Validate(request);
         if (error is not null)
         {
             return Results.BadRequest(error);
@@ -95,12 +95,12 @@ public static class InterventiEndpoints
 
         return success
             ? Results.Ok(updated.ToDto())
-            : Results.Problem("Errore durante l'aggiornamento");
+            : Results.Conflict("Esiste già una scheda per questa targa");
     }
 
     private static async Task<IResult> DeleteAsync(
         Guid id,
-        IInterventiRepository repository,
+        IAutoRepository repository,
         CancellationToken cancellationToken)
     {
         var success = await repository.DeleteAsync(id, cancellationToken);

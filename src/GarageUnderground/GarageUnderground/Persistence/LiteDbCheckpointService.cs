@@ -93,13 +93,13 @@ public class LiteDbCheckpointService : BackgroundService
         try
         {
             // Checkpoint finale: persiste tutte le transazioni pending
-            // Questo è CRITICO per evitare perdita di dati durante shutdown
+            // Questo Ã¨ critico per evitare perdita di dati durante shutdown
             database.Checkpoint();
-            logger.LogWarning("? CRITICAL final database checkpoint completed successfully");
+            logger.LogWarning("Final database checkpoint completed");
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "? CRITICAL ERROR during final database checkpoint - DATA MAY BE LOST!");
+            logger.LogError(ex, "CRITICAL ERROR during final database checkpoint - data may be lost");
         }
     }
 
@@ -111,11 +111,11 @@ public class LiteDbCheckpointService : BackgroundService
         try
         {
             database.Checkpoint();
-            logger.LogWarning("? Final checkpoint on service stop completed");
+            logger.LogWarning("Final checkpoint on service stop completed");
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "? ERROR during final checkpoint on service stop");
+            logger.LogError(ex, "ERROR during final checkpoint on service stop");
         }
 
         await base.StopAsync(cancellationToken);

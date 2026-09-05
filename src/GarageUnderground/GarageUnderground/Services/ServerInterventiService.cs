@@ -6,7 +6,7 @@ namespace GarageUnderground.Services;
 
 /// <summary>
 /// Implementazione server-side del servizio interventi che usa direttamente il repository.
-/// Usato durante la pre-renderizzazione SSR.
+/// Applica le stesse validazioni dell'API: è il percorso usato dalle pagine Blazor.
 /// </summary>
 public sealed class ServerInterventiService : IInterventiService
 {
@@ -25,35 +25,36 @@ public sealed class ServerInterventiService : IInterventiService
         }
 
         var interventi = await repository.GetByTargaAsync(targa);
-        return interventi.Select(ToDto).ToList();
+        return interventi.Select(i => i.ToDto()).ToList();
     }
 
     public async Task<InterventoDto?> GetByIdAsync(Guid id)
     {
         var intervento = await repository.GetByIdAsync(id);
-        return intervento is null ? null : ToDto(intervento);
+        return intervento?.ToDto();
     }
 
     public async Task<InterventoDto?> CreateAsync(NuovoInterventoDto dto)
     {
         ArgumentNullException.ThrowIfNull(dto);
 
-        var intervento = new Intervento
+        if (InterventoValidator.Validate(dto) is not null)
         {
-            Targa = dto.Targa,
-            Data = dto.Data,
-            Descrizione = dto.Descrizione,
-            Costo = dto.Costo,
-            Pagato = dto.Pagato
-        };
+            return null;
+        }
 
-        var created = await repository.CreateAsync(intervento);
-        return ToDto(created);
+        var created = await repository.CreateAsync(dto.ToNewEntity());
+        return created.ToDto();
     }
 
     public async Task<InterventoDto?> UpdateAsync(Guid id, NuovoInterventoDto dto)
     {
         ArgumentNullException.ThrowIfNull(dto);
+
+        if (InterventoValidator.Validate(dto) is not null)
+        {
+            return null;
+        }
 
         var existing = await repository.GetByIdAsync(id);
         if (existing is null)
@@ -61,32 +62,13 @@ public sealed class ServerInterventiService : IInterventiService
             return null;
         }
 
-        var updated = existing with
-        {
-            Targa = dto.Targa,
-            Data = dto.Data,
-            Descrizione = dto.Descrizione,
-            Costo = dto.Costo,
-            Pagato = dto.Pagato
-        };
-
+        var updated = dto.ApplyTo(existing);
         var success = await repository.UpdateAsync(updated);
-        return success ? ToDto(updated) : null;
+        return success ? updated.ToDto() : null;
     }
 
     public async Task<bool> DeleteAsync(Guid id)
     {
         return await repository.DeleteAsync(id);
     }
-
-    private static InterventoDto ToDto(Intervento intervento) => new()
-    {
-        Id = intervento.Id,
-        Targa = intervento.Targa,
-        Data = intervento.Data,
-        Descrizione = intervento.Descrizione,
-        Costo = intervento.Costo,
-        Pagato = intervento.Pagato,
-        CreatedAt = intervento.CreatedAt
-    };
 }

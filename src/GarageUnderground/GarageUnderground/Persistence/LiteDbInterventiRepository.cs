@@ -102,8 +102,5 @@ public sealed class LiteDbInterventiRepository : IInterventiRepository
         return Task.FromResult(deleted);
     }
 
-    private static string NormalizeTarga(string targa)
-    {
-        return targa.Trim().ToUpperInvariant().Replace(" ", "");
-    }
+    private static string NormalizeTarga(string targa) => TargaNormalizer.Normalize(targa);
 }

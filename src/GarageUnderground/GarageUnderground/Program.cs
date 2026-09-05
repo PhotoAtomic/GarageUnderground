@@ -39,6 +39,7 @@ builder.Services.AddPersistence(builder.Configuration);
 
 // Add server-side services (usano direttamente il repository, non fanno chiamate HTTP)
 builder.Services.AddScoped<IInterventiService, ServerInterventiService>();
+builder.Services.AddScoped<IAutoService, ServerAutoService>();
 
 // Add server-side authentication state provider
 builder.Services.AddScoped<ApiAuthenticationStateProvider, ServerApiAuthenticationStateProvider>();
@@ -69,22 +70,6 @@ var app = builder.Build();
 if (builder.Configuration.GetValue<bool>("ReverseProxy:Enabled"))
 {
     app.UseForwardedHeaders();
-    
-    // Temporary logging middleware to debug forwarded headers
-    app.Use(async (context, next) =>
-    {
-        var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
-        logger.LogInformation(
-            "Request: {Method} {Path}, Scheme: {Scheme}, Host: {Host}, X-Forwarded-Proto: {ForwardedProto}, X-Forwarded-Host: {ForwardedHost}",
-            context.Request.Method,
-            context.Request.Path,
-            context.Request.Scheme,
-            context.Request.Host,
-            context.Request.Headers["X-Forwarded-Proto"].FirstOrDefault() ?? "none",
-            context.Request.Headers["X-Forwarded-Host"].FirstOrDefault() ?? "none");
-        
-        await next();
-    });
 }
 
 app.MapDefaultEndpoints();
@@ -119,6 +104,7 @@ app.MapAuthenticationEndpoints();
 
 // Map API endpoints
 app.MapInterventiEndpoints();
+app.MapAutoEndpoints();
 app.MapAdminRolesEndpoints();
 app.MapDiagnosticEndpoints();
 

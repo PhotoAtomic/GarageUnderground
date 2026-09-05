@@ -36,7 +36,7 @@ public interface IInterventiRepository
     /// </summary>
     /// <param name="intervento">Intervento aggiornato.</param>
     /// <param name="cancellationToken">Token di cancellazione.</param>
-    /// <returns>True se l'aggiornamento è riuscito, false altrimenti.</returns>
+    /// <returns>True se l'aggiornamento Ã¨ riuscito, false altrimenti.</returns>
     Task<bool> UpdateAsync(Intervento intervento, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -44,6 +44,6 @@ public interface IInterventiRepository
     /// </summary>
     /// <param name="id">Identificatore dell'intervento da eliminare.</param>
     /// <param name="cancellationToken">Token di cancellazione.</param>
-    /// <returns>True se l'eliminazione è riuscita, false altrimenti.</returns>
+    /// <returns>True se l'eliminazione Ã¨ riuscita, false altrimenti.</returns>
     Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
 }

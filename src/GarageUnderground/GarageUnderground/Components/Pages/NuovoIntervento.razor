@@ -250,17 +250,9 @@ else if (user?.IsAuthenticated == true)
 
     private async Task SaveIntervento()
     {
-        errorMessage = null;
-
-        if (string.IsNullOrWhiteSpace(descrizione))
+        errorMessage = InterventoValidator.Validate(targa, descrizione, costo);
+        if (errorMessage is not null)
         {
-            errorMessage = "La descrizione è obbligatoria";
-            return;
-        }
-
-        if (costo < 0)
-        {
-            errorMessage = "Il costo non può essere negativo";
             return;
         }
 

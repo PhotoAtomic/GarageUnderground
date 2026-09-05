@@ -172,8 +172,8 @@ public static class AdminRolesEndpoints
         // List of predefined roles available in the system
         var roles = new[]
         {
-            new RoleInfo("canAdmin", "Amministratore", "Può gestire i ruoli utente e le impostazioni di sistema"),
-            new RoleInfo("canLogin", "Accesso", "Può accedere all'applicazione")
+            new RoleInfo("canAdmin", "Amministratore", "PuÃ² gestire i ruoli utente e le impostazioni di sistema"),
+            new RoleInfo("canLogin", "Accesso", "PuÃ² accedere all'applicazione")
         };
 
         return Results.Ok(roles);
