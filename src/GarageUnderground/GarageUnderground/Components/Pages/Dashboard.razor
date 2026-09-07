@@ -62,23 +62,38 @@ else if (user?.IsAuthenticated == true)
         @if (!hasSearched)
         {
             var suggerimenti = Suggerimenti.ToList();
-            if (suggerimenti.Count > 0)
+            if (suggerimenti.Count > 0 || riepilogoTarghe.Count > 0)
             {
                 <div class="targhe-section">
-                    <h2 class="targhe-title">@(string.IsNullOrWhiteSpace(searchTarga) ? "Targhe recenti" : "Targhe in archivio")</h2>
-                    <div class="targhe-list">
-                        @foreach (var r in suggerimenti)
-                        {
-                            <button class="targa-chip" @onclick="() => SelectTarga(r.Targa)">
-                                <span class="targa-chip-targa">@r.Targa</span>
-                                <span class="targa-chip-info">@r.NumeroInterventi @(r.NumeroInterventi == 1 ? "intervento" : "interventi") &middot; @r.UltimaData.ToString("dd/MM/yyyy")</span>
-                                @if (r.TotaleDaPagare > 0)
-                                {
-                                    <span class="targa-chip-debito">&euro; @r.TotaleDaPagare.ToString("N2") da incassare</span>
-                                }
-                            </button>
-                        }
+                    <div class="targhe-header">
+                        <h2 class="targhe-title">@TitoloTarghe</h2>
+                        <div class="targhe-filtro" role="group" aria-label="Filtro targhe">
+                            <button type="button" class="filtro-btn @(filtroTarghe == FiltroTarghe.Recenti ? "attivo" : "")"
+                                    @onclick="() => filtroTarghe = FiltroTarghe.Recenti">Ultimi interventi</button>
+                            <button type="button" class="filtro-btn @(filtroTarghe == FiltroTarghe.NonPagati ? "attivo" : "")"
+                                    @onclick="() => filtroTarghe = FiltroTarghe.NonPagati">Non pagati</button>
+                        </div>
                     </div>
+                    @if (suggerimenti.Count > 0)
+                    {
+                        <div class="targhe-list">
+                            @foreach (var r in suggerimenti)
+                            {
+                                <button class="targa-chip" @onclick="() => SelectTarga(r.Targa)">
+                                    <span class="targa-chip-targa">@r.Targa</span>
+                                    <span class="targa-chip-info">@r.NumeroInterventi @(r.NumeroInterventi == 1 ? "intervento" : "interventi") &middot; @r.UltimaData.ToString("dd/MM/yyyy")</span>
+                                    @if (r.TotaleDaPagare > 0)
+                                    {
+                                        <span class="targa-chip-debito">&euro; @r.TotaleDaPagare.ToString("N2") da incassare</span>
+                                    }
+                                </button>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="targhe-vuoto">@(filtroTarghe == FiltroTarghe.NonPagati ? "Nessun intervento da incassare." : "Nessuna targa trovata.")</p>
+                    }
                 </div>
             }
         }
@@ -163,14 +178,6 @@ else if (user?.IsAuthenticated == true)
                             <span class="riepilogo-label">Da incassare</span>
                             <span class="riepilogo-value">&euro; @TotaleDaPagare.ToString("N2")</span>
                         </div>
-                        <a class="btn-csv" href="@CsvUrl" target="_blank" rel="noopener" title="Scarica gli interventi in CSV">
-                            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                <polyline points="7 10 12 15 17 10"/>
-                                <line x1="12" y1="15" x2="12" y2="3"/>
-                            </svg>
-                            <span>CSV</span>
-                        </a>
                     </div>
                 }
 
@@ -265,8 +272,11 @@ else if (user?.IsAuthenticated == true)
     [SupplyParameterFromQuery]
     public string? Esito { get; set; }
 
-    private const int MaxSuggerimenti = 8;
-    private const int MaxTargheInArchivio = 200;
+    private const int MaxSuggerimenti = 10;
+    // Tutte le targhe: il filtro "Non pagati" deve vederle tutte, non solo le più recenti
+    private const int MaxTargheInArchivio = int.MaxValue;
+
+    private enum FiltroTarghe { Recenti, NonPagati }
     private static readonly TimeSpan ToastDuration = TimeSpan.FromSeconds(3);
 
     private UserInfo? user;
@@ -279,16 +289,24 @@ else if (user?.IsAuthenticated == true)
     private List<InterventoDto> interventi = [];
     private AutoDto? auto;
     private List<TargaRiepilogo> riepilogoTarghe = [];
+    private FiltroTarghe filtroTarghe = FiltroTarghe.Recenti;
     private Guid? togglingId;
     private string? toast;
     private CancellationTokenSource? toastCts;
 
     private decimal TotaleCosto => interventi.Sum(i => i.Costo);
     private decimal TotaleDaPagare => interventi.Where(i => !i.Pagato).Sum(i => i.Costo);
-    private string CsvUrl => $"/api/interventi/targa/{Uri.EscapeDataString(currentTarga)}/csv";
+
+    private string TitoloTarghe => filtroTarghe switch
+    {
+        FiltroTarghe.NonPagati => "Da incassare",
+        _ => string.IsNullOrWhiteSpace(searchTarga) ? "Targhe recenti" : "Targhe in archivio"
+    };
 
     /// <summary>
     /// Targhe in archivio che contengono quello che si sta digitando (tutte, se il campo è vuoto).
+    /// Con "Ultimi interventi" sono le più recenti, al massimo <see cref="MaxSuggerimenti"/>;
+    /// con "Non pagati" sono tutte quelle con qualcosa da incassare, senza limite.
     /// </summary>
     private IEnumerable<TargaRiepilogo> Suggerimenti
     {
@@ -298,7 +316,9 @@ else if (user?.IsAuthenticated == true)
             var fonte = filtro.Length == 0
                 ? riepilogoTarghe
                 : riepilogoTarghe.Where(r => r.Targa.Contains(filtro, StringComparison.Ordinal));
-            return fonte.Take(MaxSuggerimenti);
+            return filtroTarghe == FiltroTarghe.NonPagati
+                ? fonte.Where(r => r.TotaleDaPagare > 0)
+                : fonte.Take(MaxSuggerimenti);
         }
     }
 
@@ -645,6 +665,14 @@ else if (user?.IsAuthenticated == true)
         gap: 0.75rem;
     }
 
+    .targhe-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+
     .targhe-title {
         font-size: 1rem;
         font-weight: 500;
@@ -652,6 +680,38 @@ else if (user?.IsAuthenticated == true)
         letter-spacing: 0.06em;
         color: var(--color-text-muted);
         margin: 0;
+    }
+
+    .targhe-filtro {
+        display: inline-flex;
+        border: 2px solid var(--color-primary);
+        border-radius: 0.6rem;
+        overflow: hidden;
+    }
+
+    .filtro-btn {
+        padding: 0.45rem 0.9rem;
+        background: transparent;
+        border: none;
+        color: var(--color-text-muted);
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.2s, color 0.2s;
+    }
+
+    .filtro-btn + .filtro-btn {
+        border-left: 2px solid var(--color-primary);
+    }
+
+    .filtro-btn.attivo {
+        background-color: var(--color-primary);
+        color: var(--color-text);
+    }
+
+    .targhe-vuoto {
+        margin: 0;
+        color: var(--color-text-muted);
     }
 
     .targhe-list {
@@ -742,25 +802,6 @@ else if (user?.IsAuthenticated == true)
         font-weight: 700;
         color: var(--color-text);
         white-space: nowrap;
-    }
-
-    .btn-csv {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.4rem;
-        padding: 0.5rem 1rem;
-        background-color: var(--color-primary);
-        color: var(--color-text);
-        border-radius: 0.5rem;
-        font-weight: 600;
-        text-decoration: none;
-        align-self: center;
-    }
-
-    .btn-csv:hover {
-        background-color: var(--color-accent);
-        text-decoration: none;
     }
 
     .btn-spinner-small {
