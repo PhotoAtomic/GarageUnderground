@@ -88,6 +88,9 @@ public static class AuthenticationServiceExtensions
                 options.SaveTokens = true;
                 options.CallbackPath = "/signin-microsoft";
                 options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+                // Mostra sempre il selettore account: senza, la sessione SSO di Entra
+                // rientra in silenzio con l'ultimo account usato, anche dopo il logout
+                options.Prompt = "select_account";
 
                 // Request scopes
                 options.Scope.Clear();
@@ -176,6 +179,12 @@ public static class AuthenticationServiceExtensions
                 options.ClientSecret = authConfig.Google.ClientSecret!;
                 options.SaveTokens = true;
                 options.CallbackPath = "/signin-google";
+                // Mostra sempre il selettore account (vedi Microsoft sopra)
+                options.Events.OnRedirectToAuthorizationEndpoint = ctx =>
+                {
+                    ctx.Response.Redirect(ctx.RedirectUri + "&prompt=select_account");
+                    return Task.CompletedTask;
+                };
 
                 // Request scopes to get user profile info
                 options.Scope.Add("openid");

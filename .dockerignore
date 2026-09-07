@@ -1,0 +1,12 @@
+# Artefatti di build locali: se finiscono nel contesto Docker, il publish nel
+# container riusa bundle stantii (es. CSS scoped di Blazor con scope id di un
+# build Windows) e gli stili non combaciano con l'HTML.
+**/bin/
+**/obj/
+**/.vs/
+**/*.user
+.git/
+.claude/
+docs/
+certs/
+*.md

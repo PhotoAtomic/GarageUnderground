@@ -120,9 +120,10 @@
         }
     }
 
-    private async Task Logout()
+    private void Logout()
     {
-        await AuthStateProvider.LogoutAsync();
-        Navigation.NavigateTo("/", forceLoad: true);
+        // In Blazor Server il cookie si cancella solo se è il browser a chiamare
+        // l'endpoint: una chiamata HTTP dal server non tocca i cookie dell'utente.
+        Navigation.NavigateTo($"{Navigation.BaseUri}api/auth/logout", forceLoad: true);
     }
 }

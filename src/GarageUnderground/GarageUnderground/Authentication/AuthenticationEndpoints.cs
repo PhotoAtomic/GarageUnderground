@@ -156,7 +156,7 @@ public static class AuthenticationEndpoints
         return Results.Ok(new ProvidersResponse(providers, providerService.IsMockAuthenticationActive));
     }
 
-    private static IResult ChallengeProvider(
+    private static async Task<IResult> ChallengeProvider(
         string scheme,
         HttpContext context,
         IAuthenticationProviderService providerService)
@@ -165,6 +165,13 @@ public static class AuthenticationEndpoints
         if (!providers.Any(p => p.Scheme.Equals(scheme, StringComparison.OrdinalIgnoreCase)))
         {
             return Results.BadRequest("Invalid authentication scheme");
+        }
+
+        // Un cookie di una sessione precedente (es. un account senza permessi) non deve
+        // impedire di entrare con un account diverso: si cancella prima del challenge
+        if (context.User.Identity?.IsAuthenticated == true)
+        {
+            await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         }
 
         // The redirect after successful OAuth is configured in AuthenticationServiceExtensions
