@@ -91,6 +91,17 @@
         promptInstall: function () {
             return promptInstall();
         },
+        // iPhone installata in home: nessuna barra del browser, quindi nessun "indietro"
+        isIosStandalone: function () {
+            return window.navigator.standalone === true;
+        },
+        goBack: function () {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.location.assign('/dashboard');
+            }
+        },
         setDotNetHelper: function (helper) {
             dotNetHelper = helper;
             console.log('PWA: DotNet helper registered');

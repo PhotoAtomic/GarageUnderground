@@ -21,6 +21,33 @@
     min-width: 0;
 }
 
+/* Freccia "indietro" per iPhone in modalità app (vedi NavMenu.razor) */
+.back-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    margin-right: -0.75rem;
+    background: transparent;
+    border: none;
+    border-radius: 0.5rem;
+    color: var(--color-text);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background-color 0.2s;
+}
+
+.back-button svg {
+    width: 1.6rem;
+    height: 1.6rem;
+}
+
+.back-button:hover,
+.back-button:active {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
 .app-title {
     font-size: 1.25rem;
     font-weight: 600;

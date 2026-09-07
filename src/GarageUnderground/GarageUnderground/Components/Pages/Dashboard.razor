@@ -41,7 +41,7 @@ else if (user?.IsAuthenticated == true)
                        @onkeydown="HandleSearchKeyDown" />
                 @if (showSearchButton)
                 {
-                    <button class="btn btn-search" @onclick="SearchInterventi" disabled="@isSearching">
+                    <button class="btn btn-search" @onclick="AvviaRicerca" disabled="@isSearching">
                         @if (isSearching)
                         {
                             <span class="btn-spinner"></span>
@@ -290,7 +290,11 @@ else if (user?.IsAuthenticated == true)
     private AutoDto? auto;
     private List<TargaRiepilogo> riepilogoTarghe = [];
     private FiltroTarghe filtroTarghe = FiltroTarghe.Recenti;
+    // Ultima targa letta dall'URL: serve a capire se un cambio di parametri è una vera navigazione
+    private string? lastTargaParam;
     private Guid? togglingId;
+
+    private string? TargaDaUrl => string.IsNullOrWhiteSpace(Targa) ? null : TargaNormalizer.Normalize(Targa);
     private string? toast;
     private CancellationTokenSource? toastCts;
 
@@ -343,9 +347,10 @@ else if (user?.IsAuthenticated == true)
         var riepilogoTask = InterventiService.GetRiepilogoTargheAsync(MaxTargheInArchivio);
 
         // Se c'è una targa nel query parameter, esegui automaticamente la ricerca
-        if (!string.IsNullOrWhiteSpace(Targa))
+        lastTargaParam = TargaDaUrl;
+        if (lastTargaParam is not null)
         {
-            searchTarga = TargaNormalizer.Normalize(Targa);
+            searchTarga = lastTargaParam;
             isLoading = false;
             await SearchInterventi();
         }
@@ -370,10 +375,40 @@ else if (user?.IsAuthenticated == true)
         }
     }
 
-    private async Task SelectTarga(string targa)
+    private void SelectTarga(string targa)
     {
         searchTarga = targa;
-        await SearchInterventi();
+        Navigation.NavigateTo(UrlTarga(TargaNormalizer.Normalize(targa)));
+    }
+
+    /// <summary>
+    /// Ogni targa aperta è una voce di cronologia (<c>?targa=…</c>). Quando l'URL cambia
+    /// restando su questa pagina — avanti, indietro, un'altra targa — si allinea la vista.
+    /// </summary>
+    protected override async Task OnParametersSetAsync()
+    {
+        var targaParam = TargaDaUrl;
+        if (targaParam == lastTargaParam)
+        {
+            return;
+        }
+
+        lastTargaParam = targaParam;
+        if (targaParam is null)
+        {
+            // Tornati alla lista
+            interventi.Clear();
+            auto = null;
+            hasSearched = false;
+            showSearchButton = true;
+            searchTarga = string.Empty;
+            currentTarga = string.Empty;
+        }
+        else
+        {
+            searchTarga = targaParam;
+            await SearchInterventi();
+        }
     }
 
     private async Task TogglePagato(InterventoDto intervento)
@@ -446,9 +481,32 @@ else if (user?.IsAuthenticated == true)
     {
         if (e.Key == "Enter")
         {
-            await SearchInterventi();
+            await AvviaRicerca();
         }
     }
+
+    /// <summary>
+    /// Apre la targa digitata passando dall'URL, così la lista resta nella cronologia
+    /// e "indietro" (browser, Android) ci torna. Se l'URL è già quello, ricarica soltanto.
+    /// </summary>
+    private async Task AvviaRicerca()
+    {
+        var targa = TargaNormalizer.Normalize(searchTarga);
+        if (targa.Length == 0)
+        {
+            return;
+        }
+
+        if (targa == lastTargaParam)
+        {
+            await SearchInterventi();
+            return;
+        }
+
+        Navigation.NavigateTo(UrlTarga(targa));
+    }
+
+    private static string UrlTarga(string targa) => $"/dashboard?targa={Uri.EscapeDataString(targa)}";
 
     private async Task SearchInterventi()
     {
