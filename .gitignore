@@ -424,3 +424,7 @@ FodyWeavers.xsd
 .playwright-mcp/
 *.png
 !src/**/wwwroot/**/*.png
+
+# Documentazione di infrastruttura: contiene IP, porte e dettagli dei server
+# personali. Resta in locale, non deve finire nel repository.
+docs/infra/
