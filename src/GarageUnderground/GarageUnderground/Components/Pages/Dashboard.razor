@@ -74,6 +74,14 @@ else if (user?.IsAuthenticated == true)
                                     @onclick="() => filtroTarghe = FiltroTarghe.NonPagati">Non pagati</button>
                         </div>
                     </div>
+                    @if (filtroTarghe == FiltroTarghe.NonPagati && suggerimenti.Count > 0)
+                    {
+                        <div class="targhe-totale">
+                            <span class="targhe-totale-label">Totale da incassare</span>
+                            <span class="targhe-totale-value">&euro; @suggerimenti.Sum(r => r.TotaleDaPagare).ToString("N2")</span>
+                            <span class="targhe-totale-info">@suggerimenti.Count @(suggerimenti.Count == 1 ? "targa" : "targhe")</span>
+                        </div>
+                    }
                     @if (suggerimenti.Count > 0)
                     {
                         <div class="targhe-list">
@@ -769,6 +777,36 @@ else if (user?.IsAuthenticated == true)
 
     .targhe-vuoto {
         margin: 0;
+        color: var(--color-text-muted);
+    }
+
+    .targhe-totale {
+        display: flex;
+        align-items: baseline;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+        padding: 0.75rem 1rem;
+        background-color: var(--color-surface);
+        border-left: 4px solid var(--color-accent);
+        border-radius: 0.5rem;
+    }
+
+    .targhe-totale-label {
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--color-text-muted);
+    }
+
+    .targhe-totale-value {
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: var(--color-accent);
+        white-space: nowrap;
+    }
+
+    .targhe-totale-info {
+        font-size: 0.9rem;
         color: var(--color-text-muted);
     }
 
