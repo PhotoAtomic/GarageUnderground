@@ -15,6 +15,11 @@ public interface IAutoService
     Task<AutoDto?> GetByIdAsync(Guid id);
 
     /// <summary>
+    /// Tutte le schede auto in archivio, per la ricerca per proprietario o modello.
+    /// </summary>
+    Task<IReadOnlyList<AutoDto>> GetAllAsync();
+
+    /// <summary>
     /// Crea la scheda. Null se i dati non sono validi o la targa esiste già.
     /// </summary>
     Task<AutoDto?> CreateAsync(SalvaAutoDto auto);

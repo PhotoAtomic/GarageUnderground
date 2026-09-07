@@ -39,6 +39,11 @@ public sealed class LiteDbAutoRepository : IAutoRepository
         return Task.FromResult<Auto?>(Collection.FindById(id));
     }
 
+    public Task<IReadOnlyList<Auto>> GetAllAsync(CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult<IReadOnlyList<Auto>>(Collection.FindAll().ToList());
+    }
+
     public Task<Auto?> CreateAsync(Auto auto, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(auto);

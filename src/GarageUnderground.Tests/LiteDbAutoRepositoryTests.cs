@@ -21,6 +21,22 @@ public class LiteDbAutoRepositoryTests
     }
 
     [Fact]
+    public async Task GetAll_RestituisceTutteLeSchede()
+    {
+        using var db = new TempDatabase();
+        var repo = db.Auto;
+
+        await repo.CreateAsync(new Auto { Targa = "AA000AA", Proprietario = "Rossi" });
+        await repo.CreateAsync(new Auto { Targa = "BB111BB", Proprietario = "Bianchi" });
+
+        var tutte = await repo.GetAllAsync();
+
+        Assert.Equal(2, tutte.Count);
+        Assert.Contains(tutte, a => a.Targa == "AA000AA" && a.Proprietario == "Rossi");
+        Assert.Contains(tutte, a => a.Targa == "BB111BB" && a.Proprietario == "Bianchi");
+    }
+
+    [Fact]
     public async Task Create_TargaDuplicata_RestituisceNull()
     {
         using var db = new TempDatabase();

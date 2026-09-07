@@ -15,6 +15,11 @@ public interface IAutoRepository
     Task<Auto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Tutte le schede auto in archivio, per la ricerca per proprietario o modello.
+    /// </summary>
+    Task<IReadOnlyList<Auto>> GetAllAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Crea la scheda. Restituisce null se esiste già una scheda per quella targa.
     /// </summary>
     Task<Auto?> CreateAsync(Auto auto, CancellationToken cancellationToken = default);

@@ -29,6 +29,12 @@ public sealed class ServerAutoService : IAutoService
         return auto?.ToDto();
     }
 
+    public async Task<IReadOnlyList<AutoDto>> GetAllAsync()
+    {
+        var tutte = await repository.GetAllAsync();
+        return tutte.Select(a => a.ToDto()).ToList();
+    }
+
     public async Task<AutoDto?> CreateAsync(SalvaAutoDto dto)
     {
         ArgumentNullException.ThrowIfNull(dto);
